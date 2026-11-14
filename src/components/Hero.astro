@@ -1,0 +1,293 @@
+---
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+const primaryAction = actions[0];
+const secondaryAction = actions[1];
+---
+
+<section class="sr-hero not-content" aria-labelledby="_top">
+	<div class="sr-hero-backdrop" aria-hidden="true"></div>
+
+	<div class="sr-hero-grid">
+		<div class="sr-hero-copy">
+			<p class="sr-eyebrow">
+				<span class="sr-eyebrow-dot" aria-hidden="true"></span>
+				<span>跨主机多 Agent 协作工作台 · 纯出站零入站端口</span>
+			</p>
+
+			<h1 id="_top" data-page-title class="sr-hero-title">
+				<span class="sr-title-main">{title}</span>
+				<span class="sr-title-accent">一行命令把任意开发机接入统一工作台</span>
+			</h1>
+
+			{tagline && <p class="sr-hero-tagline">{tagline}</p>}
+
+			<div class="sr-hero-actions">
+				{
+					primaryAction && (
+						<a class="sr-btn sr-btn-primary" href={primaryAction.link}>
+							<span>{primaryAction.text}</span>
+							<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M5 12h14" />
+								<path d="m12 5 7 7-7 7" />
+							</svg>
+						</a>
+					)
+				}
+				{
+					secondaryAction && (
+						<a class="sr-btn sr-btn-secondary" href={secondaryAction.link}>
+							<span>{secondaryAction.text}</span>
+							<svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<polyline points="4 17 10 11 4 5" />
+								<line x1="12" y1="19" x2="20" y2="19" />
+							</svg>
+						</a>
+					)
+				}
+				<a class="sr-btn sr-btn-ghost" href="/concepts/architecture/">
+					<span>阅读架构总览</span>
+				</a>
+			</div>
+
+			<ul class="sr-metrics-pills" aria-label="关键架构特性">
+				<li>
+					<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+					</svg>
+					<span><strong>0 入站端口</strong> 无需 SSH 或中继</span>
+				</li>
+				<li>
+					<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+						<circle cx="18" cy="18" r="3" />
+						<circle cx="6" cy="6" r="3" />
+						<path d="M6 21V9a9 9 0 0 0 9 9" />
+					</svg>
+					<span><strong>Worktree 隔离</strong> 多 Agent 并行不串改</span>
+				</li>
+				<li>
+					<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+						<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+					</svg>
+					<span><strong>断线自愈</strong> 闪断不终止运行回合</span>
+				</li>
+			</ul>
+		</div>
+
+		<div class="sr-hero-console">
+			<div class="sr-terminal-window">
+				<div class="sr-terminal-bar">
+					<div class="sr-window-dots" aria-hidden="true">
+						<span></span><span></span><span></span>
+					</div>
+					<div class="sr-cmd-switcher" role="tablist" aria-label="常用命令示例">
+						<button
+							type="button"
+							role="tab"
+							id="sr-tab-enroll"
+							aria-selected="true"
+							aria-controls="sr-panel-cmd"
+							data-cmd-mode="enroll"
+							class="sr-cmd-tab"
+						>
+							跨主机接入
+						</button>
+						<button
+							type="button"
+							role="tab"
+							id="sr-tab-local"
+							aria-selected="false"
+							aria-controls="sr-panel-cmd"
+							data-cmd-mode="local"
+							class="sr-cmd-tab"
+						>
+							本地一键启动
+						</button>
+					</div>
+					<span class="sr-copy-wrap">
+						<button
+							type="button"
+							class="sr-copy-btn"
+							command="--copy"
+							commandfor="sr-hero-code"
+							aria-label="复制当前示例命令"
+						>
+							<svg class="sr-icon-copy" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+								<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+							</svg>
+							<svg class="sr-icon-check" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+							<span class="sr-copy-label">复制</span>
+						</button>
+						<span class="sr-copy-tip" role="status"></span>
+					</span>
+				</div>
+
+				<div id="sr-panel-cmd" role="tabpanel" aria-labelledby="sr-tab-enroll" class="sr-terminal-body">
+					<pre><code id="sr-hero-code">curl -fsSL https://cp.example.com/install.sh \
+  | AS_INSTALL_TOKEN=ast_live_9f8c2a sh</code></pre>
+					<div class="sr-terminal-output" id="sr-hero-output" aria-hidden="true">
+						<p><span class="sr-ok">✓</span> 平台校验通过：darwin-arm64 / linux-amd64 / linux-arm64</p>
+						<p><span class="sr-ok">✓</span> 已注册用户级守护服务（0600 私有 Socket，零 TCP 监听）</p>
+						<p><span class="sr-ok">●</span> 隧道已连入控制面：<strong>READY</strong>（WSS /v1/node/control）</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="sr-topology-card" aria-label="四层出站连接示意">
+				<div class="sr-topo-node">
+					<span class="sr-topo-tag">Clients</span>
+					<strong>Web · Seed.app</strong>
+					<small>Connect RPC + 实时事件流</small>
+				</div>
+				<div class="sr-topo-arrow" aria-hidden="true">
+					<span>HTTPS / WSS</span>
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M5 12h14m-5-5 5 5-5 5" />
+					</svg>
+				</div>
+				<div class="sr-topo-node sr-topo-cp">
+					<span class="sr-topo-tag">Control Plane</span>
+					<strong>as-control-plane</strong>
+					<small>PG · NATS · Redis 令牌</small>
+				</div>
+				<div class="sr-topo-arrow sr-topo-outbound" aria-hidden="true">
+					<span>纯出站 WSS</span>
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M19 12H5m5 5-5-5 5-5" />
+					</svg>
+				</div>
+				<div class="sr-topo-node">
+					<span class="sr-topo-tag">Execution Host</span>
+					<strong>Workspace + Adapter</strong>
+					<small>Claude · Codex · Git · PTY</small>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<script>
+	const SNIPPETS: Record<string, { code: string; lines: string[] }> = {
+		enroll: {
+			code: `curl -fsSL https://cp.example.com/install.sh \\\n  | AS_INSTALL_TOKEN=ast_live_9f8c2a sh`,
+			lines: [
+				'<p><span class="sr-ok">✓</span> 平台校验通过：darwin-arm64 / linux-amd64 / linux-arm64</p>',
+				'<p><span class="sr-ok">✓</span> 已注册用户级守护服务（0600 私有 Socket，零 TCP 监听）</p>',
+				'<p><span class="sr-ok">●</span> 隧道已连入控制面：<strong>READY</strong>（WSS /v1/node/control）</p>',
+			],
+		},
+		local: {
+			code: `pnpm install && make deps-up\nmake dev-detached && make dev-login`,
+			lines: [
+				'<p><span class="sr-ok">✓</span> 共享依赖就绪：PostgreSQL · NATS JetStream · Redis</p>',
+				'<p><span class="sr-ok">✓</span> Worktree 独立库与端口已分配，本机节点自动注册上线</p>',
+				'<p><span class="sr-ok">●</span> 已签发 1 小时有效一次性登录链接，点击即刻进入工作台</p>',
+			],
+		},
+	};
+
+	const tabs = document.querySelectorAll<HTMLButtonElement>('.sr-cmd-tab');
+	const panel = document.getElementById('sr-panel-cmd');
+	const codeEl = document.getElementById('sr-hero-code');
+	const outputEl = document.getElementById('sr-hero-output');
+
+	for (const tab of tabs) {
+		tab.addEventListener('click', () => {
+			const mode = tab.dataset.cmdMode ?? 'enroll';
+			const item = SNIPPETS[mode];
+			if (!item || !codeEl || !outputEl || !panel) return;
+			for (const t of tabs) {
+				t.setAttribute('aria-selected', String(t === tab));
+			}
+			panel.setAttribute('aria-labelledby', tab.id);
+			codeEl.textContent = item.code;
+			outputEl.innerHTML = item.lines.join('');
+		});
+	}
+
+	// Copy button following modern-web-guidance `copy-button`:
+	// Invoker Commands (`command="--copy"` + `commandfor`) with progressive click fallback
+	// and VoiceOver repeated-announcement deduplication.
+	const timers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+	let lastAnnounced = '';
+
+	function legacyCopy(text: string): boolean {
+		const field = Object.assign(document.createElement('textarea'), { value: text });
+		field.setAttribute('readonly', '');
+		field.style.cssText = 'position:fixed;inset-block-start:0;opacity:0';
+		document.body.append(field);
+		field.select();
+		try {
+			return document.execCommand('copy');
+		} finally {
+			field.remove();
+		}
+	}
+
+	function reportCopy(button: HTMLElement, ok: boolean): void {
+		const tip = button.nextElementSibling as HTMLElement | null;
+		const prev = timers.get(button);
+		if (prev) clearTimeout(prev);
+		button.removeAttribute('data-copied');
+		button.removeAttribute('data-failed');
+		let message = ok ? '已复制' : '复制失败';
+		if (message === lastAnnounced) message += '\u00A0';
+		lastAnnounced = message;
+		if (tip) tip.textContent = '';
+		void button.offsetWidth;
+		button.setAttribute(ok ? 'data-copied' : 'data-failed', '');
+		if (tip) {
+			requestAnimationFrame(() => {
+				tip.textContent = message;
+			});
+		}
+		timers.set(
+			button,
+			setTimeout(() => {
+				button.removeAttribute('data-copied');
+				button.removeAttribute('data-failed');
+				if (tip) tip.textContent = '';
+			}, 2000)
+		);
+	}
+
+	async function runCopy(button: HTMLElement, target: HTMLElement): Promise<void> {
+		const text = target.innerText.trim();
+		if (!text) return;
+		try {
+			await navigator.clipboard.writeText(text);
+			reportCopy(button, true);
+		} catch {
+			if (legacyCopy(text)) {
+				reportCopy(button, true);
+			} else {
+				reportCopy(button, false);
+			}
+		}
+	}
+
+	if ('CommandEvent' in window) {
+		document.addEventListener(
+			'command',
+			(event: Event) => {
+				const cmdEvent = event as Event & { command?: string; source?: HTMLElement };
+				if (cmdEvent.command === '--copy' && cmdEvent.source && cmdEvent.target instanceof HTMLElement) {
+					void runCopy(cmdEvent.source, cmdEvent.target);
+				}
+			},
+			true
+		);
+	} else {
+		document.addEventListener('click', (event: MouseEvent) => {
+			const targetNode = event.target instanceof Element ? event.target : null;
+			const button = targetNode?.closest<HTMLElement>('button[command="--copy"]');
+			if (!button) return;
+			const forId = button.getAttribute('commandfor');
+			const target = forId ? document.getElementById(forId) : null;
+			if (target) void runCopy(button, target);
+		});
+	}
+</script>

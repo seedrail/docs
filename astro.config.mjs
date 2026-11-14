@@ -8,6 +8,18 @@ export default defineConfig({
 			title: 'Seedrail 文档',
 			description: '跨主机多 Agent 协作工作台：组件架构、本地启动与一行命令接入部署指南',
 			favicon: '/favicon.svg',
+			head: [
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'color-scheme',
+						content: 'light dark',
+					},
+				},
+			],
+			components: {
+				Hero: './src/components/Hero.astro',
+			},
 			defaultLocale: 'root',
 			locales: {
 				root: {
