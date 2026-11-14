@@ -1,86 +1,86 @@
 ---
-title: 组件与架构总览
-description: Seedrail 的四层运行拓扑、核心领域模型与零入站端口跨主机通信机制。
+title: Architecture Overview
+description: Seedrail's four-layer runtime topology, workspace domain hierarchy, and zero-inbound-port cross-host tunnel model.
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Seedrail 将**控制编排**与**代码执行**彻底解耦：控制面（Control Plane）可以与开发机运行在同一台电脑上，也可以独立部署在公网或团队内网服务器；每台存放代码的被控机（Host）只需运行轻量用户级节点服务，主动出站连接到控制面，全程无需开放入站端口、无需配置 SSH 免密登录，也没有额外的第三方中继进程。
+Seedrail cleanly separates **control orchestration** from **code execution**: the Control Plane can run alongside your local machine or on a dedicated public/intranet server, while every machine holding source code (Execution Host) runs a lightweight user-level daemon that dials outbound to the Control Plane — requiring zero inbound firewall ports, no SSH key distribution, and no third-party relay process.
 
-## 四层组件拓扑
+## Four-Layer Component Topology
 
-系统由四层部署单元组成，单机开发与跨主机生产环境复用完全一致的通信协议与身份模型：
+Single-machine development stacks and multi-host production deployments share the exact same protocol contract and identity model across four runtime layers:
 
 ```text
 ┌───────────────────────────────────────────────────────────────────┐
-│ 1. 客户端层 (Clients)                                              │
-│    • Web 浏览器客户端            • Seed macOS 桌面客户端 (Tauri)   │
+│ 1. Clients                                                        │
+│    • Web Browser Client           • Seed macOS Desktop (Tauri)    │
 └───────────────────┬───────────────────────────────┬───────────────┘
-                    │ HTTPS Connect RPC             │ WSS 实时事件流
+                    │ HTTPS Connect RPC             │ WSS Live Events
                     ▼                               ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│ 2. 控制面层 (Control Plane)                                        │
-│    • as-control-plane（Go 单二进制：网关、身份、项目、会话、节点网关）│
+│ 2. Control Plane                                                  │
+│    • as-control-plane (Go binary: gateway, auth, projects, nodes) │
 ├───────────────────────────────────────────────────────────────────┤
-│ 3. 控制面基础设施 (Infrastructure — 仅控制面侧需要)                 │
-│    • PostgreSQL（业务状态与事件权威持久化）                         │
-│    • NATS JetStream（实时运行片段与事件分发缓冲）                    │
-│    • Redis（仅保存 1 小时有效的一次性节点安装令牌）                  │
+│ 3. Control Plane Infrastructure (Control Plane side only)         │
+│    • PostgreSQL (authoritative state & event persistence)         │
+│    • NATS JetStream (real-time delta fan-out buffer)              │
+│    • Redis (1-hour single-use host enrollment tokens only)        │
 └───────────────────────────────────▲───────────────────────────────┘
                                     │ Outbound WSS (/v1/node/*)
-                                    │ 被控机主动出站建连，零入站监听
+                                    │ Host dials outbound; 0 inbound ports
 ┌───────────────────────────────────┴───────────────────────────────┐
-│ 4. 被控执行机节点 (Execution Host — 每台开发机/云主机一套)          │
-│    • as-workspace-server（父进程：出站隧道、目录授权、Git/文件/终端）│
-│    • as-adapter-host（受监督子进程：驱动本机 Claude / Codex 等 CLI）│
+│ 4. Execution Host (One daemon pair per dev machine / cloud VM)    │
+│    • as-workspace-server (parent: tunnel, roots, Git/files/PTY)   │
+│    • as-adapter-host (supervised child: drives Claude/Codex CLIs) │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-| 组件层 | 运行位置 | 核心职责 |
+| Layer | Where It Runs | Core Responsibilities |
 | --- | --- | --- |
-| **Web / Desktop 客户端** | 用户电脑浏览器或 macOS 客户端 | 展示项目、Git Worktree、文件差异、终端与多会话流；所有写操作走 Connect 请求，实时增量通过单条 WebSocket 接收。 |
-| **`as-control-plane`** | 本机回环或公网/内网服务器 | 维护用户会话、项目与任务状态机、历史事件回放，并内嵌节点网关（`/v1/node/*`）与安装包分发端点（`/install.sh`、`/downloads/node/`）。 |
-| **PostgreSQL / NATS / Redis** | 仅随控制面部署 | PostgreSQL 是业务数据与事件流的唯一持久化真源；NATS 负责实时流广播；Redis 仅用于原子消费一次性节点接入令牌（即使 Redis 暂不可用，已接入节点的日常使用也不受影响）。 |
-| **`as-workspace-server` + `as-adapter-host`** | 每台被控开发机（macOS / Linux） | 以当前操作系统用户身份运行，仅在状态目录内监听 `0600` 私有 Unix Socket，对外**零 TCP 端口监听**；提供本地目录选择、Worktree 管理、终端 PTY、本地端口预览与 Agent CLI 协议适配。 |
+| **Web / Desktop Clients** | Browser or macOS desktop app | Renders projects, Git worktrees, file diffs, terminals, and multi-session streams; mutations go over Connect RPC while live deltas arrive on a single WebSocket. |
+| **`as-control-plane`** | Local loopback or public/private server | Manages user sessions, project/task state machines, historical event replay, the embedded node gateway (`/v1/node/*`), and installer distribution (`/install.sh`, `/downloads/node/`). |
+| **PostgreSQL / NATS / Redis** | Deployed alongside Control Plane only | PostgreSQL is the sole durable source of truth; NATS broadcasts live runtime chunks; Redis atomically consumes single-use host enrollment tokens (even if Redis is temporarily unavailable, already-enrolled hosts continue operating normally). |
+| **`as-workspace-server` + `as-adapter-host`** | Each enrolled macOS / Linux host | Runs under the current OS user, listening exclusively on `0600` private Unix sockets inside its state directory with **zero TCP listeners**; handles folder selection, Git worktrees, PTY terminals, local port previews, and Agent CLI protocol adaptation. |
 
-## 核心工作区模型
+## Five-Level Workspace Model
 
-在日常使用中，Seedrail 按照从项目到执行会话的五级结构隔离上下文，确保多个需求分支或多个 Agent 并行协作时互不踩踏代码树：
+Seedrail isolates concurrent work across five levels from repository root down to individual execution turns so parallel tasks and agents never step on the same working tree:
 
 <Steps>
 
-1. **Project（项目）**
-   绑定到某台已接入主机（`host_id`）上的一个授权代码仓库目录。项目一旦绑定主机，后续所有文件、Git 与终端操作均严格路由至该主机。
+1. **Project**
+   Bound to an authorized repository directory on a specific enrolled host (`host_id`). Once bound, every file, Git, and terminal operation for that project routes strictly to that host.
 
-2. **Task & Worktree（任务与独立工作树）**
-   每个任务独占一个目录或 Git Worktree，拥有独立分支与未提交改动边界，避免多个并行任务争抢同一份工作区文件。
+2. **Task & Worktree**
+   Each task owns an isolated directory or Git worktree with its own branch and uncommitted state boundary, preventing parallel tasks from contending over files.
 
-3. **Conversation（协作对话）**
-   挂载在任务之下的交互上下文，完整记录用户指令、文件引用、工具调用审批与历史输出。
+3. **Conversation**
+   An interactive collaboration thread under a task that records user prompts, file references, tool-approval decisions, and turn outputs.
 
-4. **Session & Turn（底层运行时会话与回合）**
-   由被控机上的 `as-adapter-host` 驱动本机安装的编码 Agent（如 Claude Code、Codex 等）执行具体回合（Turn），输出经标准化运行时片段实时回传至控制面与客户端。
+4. **Session & Turn**
+   Driven by `as-adapter-host` on the execution host, invoking locally installed coding CLIs (such as Claude Code or Codex) for each turn and streaming normalized runtime chunks back to the Control Plane and clients.
 
 </Steps>
 
-## 纯出站连接与安全边界
+## Outbound-Only Tunnel & Trust Boundaries
 
-跨主机协作最常见的痛点是家庭宽带、公司内网或云安全组无法直接拨入开发机。Seedrail 采用类似 GitHub Actions Runner 的**纯出站接入机制**：
+Home NAT routers, corporate firewalls, and locked-down cloud security groups typically block inbound connections to developer machines. Seedrail uses an **outbound-only enrollment model** similar to GitHub Actions self-hosted runners:
 
 <Tabs>
-  <TabItem label="出站隧道工作流">
-    1. 用户在控制面生成有效期 1 小时的一次性令牌 `ast_...`，在被控机执行 `install.sh`。
-    2. 被控机向 `POST /v1/node/register` 兑换长期 **Route Credential**（保存在本机 `0600` 状态文件中，控制面仅存哈希摘要）。
-    3. `as-workspace-server node run` 启动后，先在本地拉起并探活 `as-adapter-host` 子进程，再主动向控制面发起 `WSS /v1/node/control` 长连接保持在线。
-    4. 当控制面需要读写文件、打开终端或发起编码回合时，经控制通道通知节点按需拨起 `WSS /v1/node/data` 数据流（单节点上限 32 条业务流 + 8 条浏览器预览流），并在握手前缀中锁定固定目标（`WORKSPACE`、`ADAPTER` 或 `PREVIEW`），不允许控制面请求被控机上的任意网络地址。
+  <TabItem label="Outbound Tunnel Lifecycle">
+    1. You mint a 1-hour single-use token (`ast_...`) on the Control Plane and run `install.sh` on the target host.
+    2. The host exchanges that token at `POST /v1/node/register` for a long-lived **Route Credential** (stored locally with `0600` permissions; the Control Plane stores only its hash digest).
+    3. When `as-workspace-server node run` starts, it spawns and health-checks its local `as-adapter-host` child process first, then dials a persistent `WSS /v1/node/control` tunnel to keep the host online.
+    4. Whenever the Control Plane needs to read files, open a terminal, or start an agent turn, it signals over the control channel for the host to dial on-demand `WSS /v1/node/data` streams (capped per host at 32 service streams + 8 browser preview streams). Each stream handshake pins a fixed local target (`WORKSPACE`, `ADAPTER`, or `PREVIEW`) rather than permitting arbitrary network dialing on the host.
   </TabItem>
-  <TabItem label="断线与重连保障">
-    - **断线不杀回合**：网络短暂闪断或控制面滚动重启时，被控机上正在执行的 Agent 回合继续运行；连接恢复后按事件游标与快照自动续传，不会重复触发已发出的指令。
-    - **绝不静默串机**：当项目所属主机离线时，请求立即返回明确的不可用状态（`unavailable`），系统绝不会把任务悄悄改派到另一台在线主机。
-    - **子进程自愈**：`as-workspace-server` 作为父进程监督 `as-adapter-host`，若子进程异常退出，会按指数退避（1s 至 30s）自动拉起并恢复 `READY` 状态，主机身份保持不变。
+  <TabItem label="Disconnect & Recovery Guarantees">
+    - **Turns survive network blips**: Brief disconnects or Control Plane rolling restarts never terminate an in-flight turn on the host; upon reconnect, delivery resumes from event cursors and snapshots without re-running accepted prompts.
+    - **Never silently reroutes hosts**: If a project's bound host is offline, requests immediately fail with an explicit `unavailable` status rather than silently dispatching work to a different machine.
+    - **Child-process self-healing**: `as-workspace-server` supervises `as-adapter-host` and restarts it with exponential backoff (1s to 30s) if it exits unexpectedly, restoring `READY` without changing host identity.
   </TabItem>
 </Tabs>
 
-<Aside type="caution" title="信任模型提示">
-控制面对其名下已注册的被控节点拥有完全调度权（可在运行该节点服务的操作系统用户权限内打开终端与读写授权目录）。因此，控制面的公网 TLS 必须由受信任的公共 CA 签发并由您自己的控制面或自有反向代理终止，切勿将控制面置于会解密流量的不可信第三方代理解析之后。
+<Aside type="caution" title="Trust Model">
+A Control Plane has full scheduling authority over hosts registered to it (opening terminals and reading/writing authorized directories under the OS user running the node service). Always terminate public Control Plane TLS using a certificate issued by a publicly trusted CA — either directly in `as-control-plane` or on a reverse proxy you fully control — and never place it behind an untrusted TLS-intercepting proxy.
 </Aside>

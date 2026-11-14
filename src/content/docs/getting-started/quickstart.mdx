@@ -1,60 +1,60 @@
 ---
-title: 本地快速开始
-description: 在单台开发机上准备环境、拉起共享依赖与完整应用栈，并登录 Web 或 macOS 桌面客户端。
+title: Local Quickstart
+description: Prepare prerequisites, start shared infrastructure and the full local stack on a single machine, and sign in via Web or macOS Seed.app.
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-本指南帮助您在本地 macOS 或 Linux 开发机上快速启动完整的 Seedrail 运行环境（包含控制面、Web 客户端以及自动注册到本机的执行节点），体验多 Worktree 与多 Agent 协作流程。
+This guide walks through launching a complete Seedrail stack on a local macOS or Linux development machine — including the Control Plane, Web client, and a local execution host automatically enrolled against your machine — so you can explore multi-worktree and multi-agent workflows right away.
 
-## 环境前置要求
+## Prerequisites
 
-开始前请确认本机已安装以下工具且位于 `PATH` 中：
+Make sure the following tools are installed and available on your `PATH`:
 
-- **Docker**（带 `docker compose`，用于一键启动本地共享的 PostgreSQL、NATS JetStream 与 Redis）
-- **Go 1.26+** 与热重载工具 **Air**（若尚未安装 Air，可执行 `go install github.com/air-verse/air@latest`）
-- **Node.js 22+** 与 **pnpm 10+**
-- **PostgreSQL 客户端工具 `psql`** 与进程编排工具 **`process-compose`**
+- **Docker** (with `docker compose`, used to start shared local PostgreSQL, NATS JetStream, and Redis containers)
+- **Go 1.26+** and **Air** for live reload (`go install github.com/air-verse/air@latest` if not yet installed)
+- **Node.js 22+** and **pnpm 10+**
+- **PostgreSQL client `psql`** and **`process-compose`**
 
-## 四步启动本地环境
+## Launch in Four Steps
 
-所有命令均在仓库根目录下执行：
+Run all commands from the repository root:
 
 <Steps>
 
-1. **安装工作区依赖并拉起基础容器**
+1. **Install workspace dependencies and start shared containers**
 
-   一台机器只需启动一套共享的 PostgreSQL、NATS 和 Redis 容器，多个本地环境或不同 Git Worktree 会自动按数据库名、NATS Account 与 Redis 键前缀隔离：
+   A single set of PostgreSQL, NATS, and Redis containers serves your entire machine; multiple checkouts or Git worktrees automatically isolate themselves by database name, NATS account, and Redis key prefix:
 
    ```bash
    pnpm install
    make deps-up
    ```
 
-   `make deps-up` 会等待三个容器全部通过健康检查，并打印本机默认连接地址（PostgreSQL `15432`、NATS `14222`、Redis `16379`）。可随时运行 `make deps-status` 查看容器状态。
+   `make deps-up` waits until all three containers pass health checks and prints default loopback ports (PostgreSQL `15432`, NATS `14222`, Redis `16379`). Run `make deps-status` anytime to inspect container status.
 
-2. **启动完整应用栈**
+2. **Start the full application stack**
 
-   根据您的终端使用习惯选择交互式 TUI 或后台守护模式启动（脚本会自动在 `.env` 中分配不冲突的端口，并完成本机节点的自动注册）：
+   Choose either background daemon mode or the interactive TUI (the launcher automatically allocates conflict-free ports in `.env` and enrolls your local host):
 
    <Tabs>
-     <TabItem label="后台启动（推荐）">
+     <TabItem label="Background Mode (Recommended)">
        ```bash
        make dev-detached
        ```
-       启动完成后可直接在同一终端继续执行健康检查与登录命令；如需查看实时进程面板，随时运行 `make dev-attach`。
+       Once startup finishes, stay in the same terminal to run health checks and mint a login link; run `make dev-attach` anytime to inspect live process logs.
      </TabItem>
-     <TabItem label="交互式 TUI 面板">
+     <TabItem label="Interactive TUI">
        ```bash
        make dev
        ```
-       终端将直接打开 `process-compose` 交互视图查看各服务实时日志；后续登录命令请在另一个终端窗口中执行。
+       Opens the interactive `process-compose` dashboard in the current terminal; run the login command below from a second terminal tab.
      </TabItem>
    </Tabs>
 
-3. **验证服务状态并获取一次性登录链接**
+3. **Verify health probes and mint a single-use login URL**
 
-   检查当前环境运行状态与 HTTP 探针，然后签发有效期 1 小时的一次性登录链接：
+   Verify HTTP readiness for the current stack, then generate a 1-hour single-use login URL:
 
    ```bash
    make dev-ls
@@ -65,35 +65,35 @@ import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
    make dev-login
    ```
 
-   在浏览器中打开 `make dev-login` 输出的登录 URL，即可自动兑换长期会话并进入已关联本机节点的协作工作台。链接过期后重新运行 `make dev-login` 即可。
+   Open the URL printed by `make dev-login` in your browser to exchange the one-time token for a session and enter the workspace with your local machine already connected. Re-run `make dev-login` whenever you need a fresh link.
 
-4. **（可选）连接 macOS 桌面客户端**
+4. **(Optional) Hand off to the macOS Desktop Client**
 
-   如果您已将桌面端安装在 `/Applications/Seed.app`，可直接将当前环境的控制面地址与一次性令牌唤起至桌面客户端：
+   If `/Applications/Seed.app` is installed, launch and sign it directly into your local Control Plane:
 
    ```bash
    make dev-login-desktop
    ```
 
-   <Aside type="tip" title="自定义客户端路径与切换环境">
-   若 `Seed.app` 安装在其他目录，可通过 `AS_DESKTOP_APP_PATH=/path/to/Seed.app make dev-login-desktop` 指定。如果桌面端已在运行，请先退出应用再执行该命令以切换所连接的控制面环境。
+   <Aside type="tip" title="Custom App Path & Switching Environments">
+   If `Seed.app` lives elsewhere, pass `AS_DESKTOP_APP_PATH=/path/to/Seed.app make dev-login-desktop`. If the desktop app is already running, quit it first before running this command to switch Control Plane environments.
    </Aside>
 
 </Steps>
 
-## 常用环境管理与回收命令
+## Lifecycle & Cleanup Commands
 
-日常暂停开发或彻底清理某个分支环境的测试数据时，按需选用以下命令：
+Use these commands to pause stacks or clean up isolated branch state:
 
-| 命令 | 作用说明 |
+| Command | Description |
 | --- | --- |
-| `make dev-ls` | 列出本机登记的所有本地开发栈状态、端口与所属目录 |
-| `make dev-down` | 停止当前环境的进程，但**保留**数据库、NATS 游标与附件状态，下次 `make dev` 无缝续接 |
-| `make dev-drop` | 停止当前环境并**彻底删除**其独立数据库、NATS Account 与本地状态目录（不影响其他环境） |
-| `make deps-down` | 所有本地环境都不再使用时，停止共享的 PostgreSQL / NATS / Redis 容器（保留数据卷） |
-| `make deps-reset` | 停止共享容器并清空全部本地数据卷（破坏性操作，仅在需要彻底重置整机开发库时使用） |
+| `make dev-ls` | List all registered local stacks on this machine along with status, ports, and checkout paths |
+| `make dev-down` | Stop processes for the current checkout while **preserving** its database, NATS cursors, and attachments for future `make dev` runs |
+| `make dev-drop` | Stop the current stack and **permanently delete** its isolated database, NATS account, and local state directory (other worktrees are untouched) |
+| `make deps-down` | Stop shared PostgreSQL / NATS / Redis containers once no local stacks are running (retains Docker volumes) |
+| `make deps-reset` | Stop shared containers and wipe all local Docker volumes (destructive; resets all local development databases on the machine) |
 
-## 下一步
+## Next Steps
 
-- 想把控制面部署到云服务器随时随地通过域名访问？请阅读 [服务端部署控制面](/deployment/control-plane/)。
-- 想将手头的另一台 Linux 云主机或 MacBook 接入同一个工作台？请阅读 [跨主机接入被控机](/deployment/add-host/)。
+- Ready to host a Control Plane on a server behind your own HTTPS domain? Read [Deploy Control Plane](/deployment/control-plane/).
+- Want to connect another Linux server or MacBook into the same workspace? Read [Add Execution Hosts](/deployment/add-host/).

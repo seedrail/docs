@@ -1,8 +1,97 @@
 ---
-const { data } = Astro.locals.starlightRoute.entry;
+const route = Astro.locals.starlightRoute;
+const isZh = route.lang === 'zh-CN' || route.locale === 'zh-cn';
+const prefix = isZh ? '/zh-cn' : '';
+const { data } = route.entry;
 const { title = data.title, tagline, actions = [] } = data.hero || {};
 const primaryAction = actions[0];
 const secondaryAction = actions[1];
+
+const t = isZh
+	? {
+			eyebrow: '跨主机多 Agent 协作工作台 · 纯出站零入站端口',
+			subtitle: '一行命令把任意开发机接入统一工作台',
+			ghostText: '阅读架构总览',
+			ghostHref: `${prefix}/concepts/architecture/`,
+			metricsAria: '关键架构特性',
+			m1Bold: '0 入站端口',
+			m1Rest: '无需 SSH 或中继',
+			m2Bold: 'Worktree 隔离',
+			m2Rest: '多 Agent 并行不串改',
+			m3Bold: '断线自愈',
+			m3Rest: '闪断不终止运行回合',
+			tablistAria: '常用命令示例',
+			tabEnroll: '跨主机接入',
+			tabLocal: '本地一键启动',
+			copyAria: '复制当前示例命令',
+			copyLabel: '复制',
+			copied: '已复制',
+			copyFailed: '复制失败',
+			topoAria: '四层出站连接示意',
+			clientsDetail: 'Connect RPC + 实时事件流',
+			cpDetail: 'PG · NATS · Redis 令牌',
+			outboundLabel: '纯出站 WSS',
+			snippets: {
+				enroll: {
+					code: `curl -fsSL https://cp.example.com/install.sh \\\n  | AS_INSTALL_TOKEN=ast_live_9f8c2a sh`,
+					lines: [
+						'<p><span class="sr-ok">✓</span> 平台校验通过：darwin-arm64 / linux-amd64 / linux-arm64</p>',
+						'<p><span class="sr-ok">✓</span> 已注册用户级守护服务（0600 私有 Socket，零 TCP 监听）</p>',
+						'<p><span class="sr-ok">●</span> 隧道已连入控制面：<strong>READY</strong>（WSS /v1/node/control）</p>',
+					],
+				},
+				local: {
+					code: `pnpm install && make deps-up\nmake dev-detached && make dev-login`,
+					lines: [
+						'<p><span class="sr-ok">✓</span> 共享依赖就绪：PostgreSQL · NATS JetStream · Redis</p>',
+						'<p><span class="sr-ok">✓</span> Worktree 独立库与端口已分配，本机节点自动注册上线</p>',
+						'<p><span class="sr-ok">●</span> 已签发 1 小时有效一次性登录链接，点击即刻进入工作台</p>',
+					],
+				},
+			},
+		}
+	: {
+			eyebrow: 'Cross-Host Multi-Agent Workspace · Outbound-Only Zero Inbound Ports',
+			subtitle: 'Connect any dev machine to one workspace with a single command',
+			ghostText: 'Architecture Overview',
+			ghostHref: `${prefix}/concepts/architecture/`,
+			metricsAria: 'Key architectural properties',
+			m1Bold: '0 Inbound Ports',
+			m1Rest: 'No SSH keys or relays',
+			m2Bold: 'Worktree Isolation',
+			m2Rest: 'Parallel agents without conflicts',
+			m3Bold: 'Fault-Tolerant',
+			m3Rest: 'Turns survive network blips',
+			tablistAria: 'Common command examples',
+			tabEnroll: 'Enroll Host',
+			tabLocal: 'Local Stack',
+			copyAria: 'Copy current command snippet',
+			copyLabel: 'Copy',
+			copied: 'Copied',
+			copyFailed: 'Copy failed',
+			topoAria: 'Four-layer outbound connection topology',
+			clientsDetail: 'Connect RPC + live event stream',
+			cpDetail: 'PG · NATS · Redis tokens',
+			outboundLabel: 'Outbound WSS',
+			snippets: {
+				enroll: {
+					code: `curl -fsSL https://cp.example.com/install.sh \\\n  | AS_INSTALL_TOKEN=ast_live_9f8c2a sh`,
+					lines: [
+						'<p><span class="sr-ok">✓</span> Verified platform: darwin-arm64 / linux-amd64 / linux-arm64</p>',
+						'<p><span class="sr-ok">✓</span> Installed user-level service (0600 private socket, zero TCP ports)</p>',
+						'<p><span class="sr-ok">●</span> Control tunnel active: <strong>READY</strong> (WSS /v1/node/control)</p>',
+					],
+				},
+				local: {
+					code: `pnpm install && make deps-up\nmake dev-detached && make dev-login`,
+					lines: [
+						'<p><span class="sr-ok">✓</span> Shared infra healthy: PostgreSQL · NATS JetStream · Redis</p>',
+						'<p><span class="sr-ok">✓</span> Isolated DB & ports allocated; local host registered online</p>',
+						'<p><span class="sr-ok">●</span> Issued 1-hour single-use login URL — open to enter workspace</p>',
+					],
+				},
+			},
+		};
 ---
 
 <section class="sr-hero not-content" aria-labelledby="_top">
@@ -12,12 +101,12 @@ const secondaryAction = actions[1];
 		<div class="sr-hero-copy">
 			<p class="sr-eyebrow">
 				<span class="sr-eyebrow-dot" aria-hidden="true"></span>
-				<span>跨主机多 Agent 协作工作台 · 纯出站零入站端口</span>
+				<span>{t.eyebrow}</span>
 			</p>
 
 			<h1 id="_top" data-page-title class="sr-hero-title">
 				<span class="sr-title-main">{title}</span>
-				<span class="sr-title-accent">一行命令把任意开发机接入统一工作台</span>
+				<span class="sr-title-accent">{t.subtitle}</span>
 			</h1>
 
 			{tagline && <p class="sr-hero-tagline">{tagline}</p>}
@@ -45,17 +134,17 @@ const secondaryAction = actions[1];
 						</a>
 					)
 				}
-				<a class="sr-btn sr-btn-ghost" href="/concepts/architecture/">
-					<span>阅读架构总览</span>
+				<a class="sr-btn sr-btn-ghost" href={t.ghostHref}>
+					<span>{t.ghostText}</span>
 				</a>
 			</div>
 
-			<ul class="sr-metrics-pills" aria-label="关键架构特性">
+			<ul class="sr-metrics-pills" aria-label={t.metricsAria}>
 				<li>
 					<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
 						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
 					</svg>
-					<span><strong>0 入站端口</strong> 无需 SSH 或中继</span>
+					<span><strong>{t.m1Bold}</strong> {t.m1Rest}</span>
 				</li>
 				<li>
 					<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -63,13 +152,13 @@ const secondaryAction = actions[1];
 						<circle cx="6" cy="6" r="3" />
 						<path d="M6 21V9a9 9 0 0 0 9 9" />
 					</svg>
-					<span><strong>Worktree 隔离</strong> 多 Agent 并行不串改</span>
+					<span><strong>{t.m2Bold}</strong> {t.m2Rest}</span>
 				</li>
 				<li>
 					<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
 						<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
 					</svg>
-					<span><strong>断线自愈</strong> 闪断不终止运行回合</span>
+					<span><strong>{t.m3Bold}</strong> {t.m3Rest}</span>
 				</li>
 			</ul>
 		</div>
@@ -80,7 +169,7 @@ const secondaryAction = actions[1];
 					<div class="sr-window-dots" aria-hidden="true">
 						<span></span><span></span><span></span>
 					</div>
-					<div class="sr-cmd-switcher" role="tablist" aria-label="常用命令示例">
+					<div class="sr-cmd-switcher" role="tablist" aria-label={t.tablistAria}>
 						<button
 							type="button"
 							role="tab"
@@ -90,7 +179,7 @@ const secondaryAction = actions[1];
 							data-cmd-mode="enroll"
 							class="sr-cmd-tab"
 						>
-							跨主机接入
+							{t.tabEnroll}
 						</button>
 						<button
 							type="button"
@@ -101,7 +190,7 @@ const secondaryAction = actions[1];
 							data-cmd-mode="local"
 							class="sr-cmd-tab"
 						>
-							本地一键启动
+							{t.tabLocal}
 						</button>
 					</div>
 					<span class="sr-copy-wrap">
@@ -110,7 +199,9 @@ const secondaryAction = actions[1];
 							class="sr-copy-btn"
 							command="--copy"
 							commandfor="sr-hero-code"
-							aria-label="复制当前示例命令"
+							data-copy-ok={t.copied}
+							data-copy-fail={t.copyFailed}
+							aria-label={t.copyAria}
 						>
 							<svg class="sr-icon-copy" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -119,28 +210,24 @@ const secondaryAction = actions[1];
 							<svg class="sr-icon-check" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
-							<span class="sr-copy-label">复制</span>
+							<span class="sr-copy-label">{t.copyLabel}</span>
 						</button>
 						<span class="sr-copy-tip" role="status"></span>
 					</span>
 				</div>
 
 				<div id="sr-panel-cmd" role="tabpanel" aria-labelledby="sr-tab-enroll" class="sr-terminal-body">
-					<pre><code id="sr-hero-code">curl -fsSL https://cp.example.com/install.sh \
-  | AS_INSTALL_TOKEN=ast_live_9f8c2a sh</code></pre>
-					<div class="sr-terminal-output" id="sr-hero-output" aria-hidden="true">
-						<p><span class="sr-ok">✓</span> 平台校验通过：darwin-arm64 / linux-amd64 / linux-arm64</p>
-						<p><span class="sr-ok">✓</span> 已注册用户级守护服务（0600 私有 Socket，零 TCP 监听）</p>
-						<p><span class="sr-ok">●</span> 隧道已连入控制面：<strong>READY</strong>（WSS /v1/node/control）</p>
-					</div>
+					<pre><code id="sr-hero-code">{t.snippets.enroll.code}</code></pre>
+					<div class="sr-terminal-output" id="sr-hero-output" aria-hidden="true" set:html={t.snippets.enroll.lines.join('')} />
 				</div>
+				<script is:inline type="application/json" id="sr-hero-snippets" set:html={JSON.stringify(t.snippets)} />
 			</div>
 
-			<div class="sr-topology-card" aria-label="四层出站连接示意">
+			<div class="sr-topology-card" aria-label={t.topoAria}>
 				<div class="sr-topo-node">
 					<span class="sr-topo-tag">Clients</span>
 					<strong>Web · Seed.app</strong>
-					<small>Connect RPC + 实时事件流</small>
+					<small>{t.clientsDetail}</small>
 				</div>
 				<div class="sr-topo-arrow" aria-hidden="true">
 					<span>HTTPS / WSS</span>
@@ -151,10 +238,10 @@ const secondaryAction = actions[1];
 				<div class="sr-topo-node sr-topo-cp">
 					<span class="sr-topo-tag">Control Plane</span>
 					<strong>as-control-plane</strong>
-					<small>PG · NATS · Redis 令牌</small>
+					<small>{t.cpDetail}</small>
 				</div>
 				<div class="sr-topo-arrow sr-topo-outbound" aria-hidden="true">
-					<span>纯出站 WSS</span>
+					<span>{t.outboundLabel}</span>
 					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M19 12H5m5 5-5-5 5-5" />
 					</svg>
@@ -170,24 +257,10 @@ const secondaryAction = actions[1];
 </section>
 
 <script>
-	const SNIPPETS: Record<string, { code: string; lines: string[] }> = {
-		enroll: {
-			code: `curl -fsSL https://cp.example.com/install.sh \\\n  | AS_INSTALL_TOKEN=ast_live_9f8c2a sh`,
-			lines: [
-				'<p><span class="sr-ok">✓</span> 平台校验通过：darwin-arm64 / linux-amd64 / linux-arm64</p>',
-				'<p><span class="sr-ok">✓</span> 已注册用户级守护服务（0600 私有 Socket，零 TCP 监听）</p>',
-				'<p><span class="sr-ok">●</span> 隧道已连入控制面：<strong>READY</strong>（WSS /v1/node/control）</p>',
-			],
-		},
-		local: {
-			code: `pnpm install && make deps-up\nmake dev-detached && make dev-login`,
-			lines: [
-				'<p><span class="sr-ok">✓</span> 共享依赖就绪：PostgreSQL · NATS JetStream · Redis</p>',
-				'<p><span class="sr-ok">✓</span> Worktree 独立库与端口已分配，本机节点自动注册上线</p>',
-				'<p><span class="sr-ok">●</span> 已签发 1 小时有效一次性登录链接，点击即刻进入工作台</p>',
-			],
-		},
-	};
+	const rawSnippets = document.getElementById('sr-hero-snippets')?.textContent;
+	const SNIPPETS: Record<string, { code: string; lines: string[] }> = rawSnippets
+		? JSON.parse(rawSnippets)
+		: {};
 
 	const tabs = document.querySelectorAll<HTMLButtonElement>('.sr-cmd-tab');
 	const panel = document.getElementById('sr-panel-cmd');
@@ -208,9 +281,6 @@ const secondaryAction = actions[1];
 		});
 	}
 
-	// Copy button following modern-web-guidance `copy-button`:
-	// Invoker Commands (`command="--copy"` + `commandfor`) with progressive click fallback
-	// and VoiceOver repeated-announcement deduplication.
 	const timers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 	let lastAnnounced = '';
 
@@ -233,7 +303,9 @@ const secondaryAction = actions[1];
 		if (prev) clearTimeout(prev);
 		button.removeAttribute('data-copied');
 		button.removeAttribute('data-failed');
-		let message = ok ? '已复制' : '复制失败';
+		const okText = button.dataset.copyOk ?? 'Copied';
+		const failText = button.dataset.copyFail ?? 'Copy failed';
+		let message = ok ? okText : failText;
 		if (message === lastAnnounced) message += '\u00A0';
 		lastAnnounced = message;
 		if (tip) tip.textContent = '';

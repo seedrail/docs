@@ -1,46 +1,46 @@
 ---
-title: 服务端部署控制面
-description: 编译跨平台发布包、配置公共信任 TLS 或自有反向代理，在生产服务器上部署 as-control-plane。
+title: Deploy Control Plane
+description: Build cross-platform release artifacts, configure publicly trusted TLS or a reverse proxy, and deploy as-control-plane in production.
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-将控制面（`as-control-plane`）部署在具备公网或团队内网 HTTPS 入口的服务器上后，您可以随时随地通过浏览器或桌面客户端访问工作台，并用一行命令把不同网络环境下的开发机接入进来。
+Deploying `as-control-plane` on a server with a public or intranet HTTPS endpoint lets you access your workspace from any browser or macOS client and enroll developer machines across networks with a single command.
 
-控制面的数据库迁移已内嵌在 Go 可执行文件中，**目标服务器无需安装 Go、Node.js、pnpm 或仓库源码**，只需上传编译产物并准备控制面基础设施（PostgreSQL、NATS JetStream、Redis）。
+Database migrations are embedded inside the Go binary — **your production server does not need Go, Node.js, pnpm, or repository source code**, only the compiled release artifacts plus Control Plane infrastructure (PostgreSQL, NATS JetStream, and Redis).
 
-## 第一步：编译控制面与跨平台节点安装包
+## Step 1: Build Control Plane & Cross-Platform Node Bundles
 
-在构建机上运行仓库提供的打包命令，一次性产出控制面二进制与被控机所需的跨平台节点归档包：
+On a build machine, run the release packaging script to produce both the Control Plane binary and multi-platform node archives in one step:
 
 ```bash
 node scripts/build-host-binaries.ts
 ```
 
-构建产物包含两部分：
+This produces two sets of artifacts:
 
-1. **`as-control-plane`**：部署在控制面服务器上的主程序（`CGO_ENABLED=0` 静态编译）。
-2. **节点分发目录（供 `-node-dist-dir` 挂载）**：包含 `darwin-arm64`、`linux-amd64`、`linux-arm64` 三个平台的 `<os>-<arch>.tar.gz` 及同名 `.sha256` 校验文件（内含 `as-workspace-server`、独立编译的 `as-adapter-host` 与 `as-delegate` 启动器）。控制面会通过 `GET /downloads/node/<os>-<arch>.tar.gz` 直接向被控机分发同版本安装包。
+1. **`as-control-plane`**: Static Go binary (`CGO_ENABLED=0`) deployed on the Control Plane server.
+2. **Node distribution directory (mounted via `-node-dist-dir`)**: Contains `<os>-<arch>.tar.gz` archives and matching `.sha256` checksum files for `darwin-arm64`, `linux-amd64`, and `linux-arm64` (packaging `as-workspace-server`, standalone `as-adapter-host`, and the `as-delegate` launcher). The Control Plane serves version-matched archives directly at `GET /downloads/node/<os>-<arch>.tar.gz`.
 
-<Aside type="note" title="按需上传平台包">
-如果未配置 `-node-dist-dir` 或缺少某个平台的 `.tar.gz`，控制面仍可正常启动，Web 端的「添加主机」弹窗会自动列出当前缺失的平台（`unavailable_platforms`）提醒管理员。
+<Aside type="note" title="Partial Platform Bundles">
+If `-node-dist-dir` is omitted or missing a specific platform archive, `as-control-plane` still boots normally and surfaces missing targets (`unavailable_platforms`) in the Web UI's "Add Host" dialog.
 </Aside>
 
-## 第二步：配置 HTTPS 与网络监听
+## Step 2: Configure HTTPS & Network Listeners
 
-控制面在同一个对外 HTTPS 入口上承载 Web 页面、Connect API、`/install.sh`、`/downloads/` 与节点网关（`/v1/node/*`）。
+`as-control-plane` serves the Web UI, Connect RPC API, `/install.sh`, `/downloads/`, and the node gateway (`/v1/node/*`) over a single external HTTPS origin.
 
-<Aside type="danger" title="TLS 证书与代理红线">
-1. **必须使用公共信任 CA 签发的证书**（如 Let's Encrypt、Tailscale `cert` 或正规商业证书）：被控机仅使用操作系统根证书库校验证书，不支持自签名或私有 CA。
-2. **切勿置于解密流量的第三方 CDN / 代理之后**：外层 TLS 是节点凭据与业务代码流量的唯一加密层，必须在 `as-control-plane` 自身或您完全控制的反向代理上终止。
-3. **严禁开启免登开关**：生产环境必须保持 `-local-no-login=false`（默认值），切勿将本机回环调试入口通过端口转发暴露到公网。
+<Aside type="danger" title="TLS & Proxy Requirements">
+1. **Use a certificate issued by a publicly trusted CA** (such as Let's Encrypt, `tailscale cert`, or a commercial CA): execution nodes validate TLS strictly against the OS root trust store and reject self-signed or private CAs.
+2. **Never place behind a TLS-decrypting third-party CDN/proxy**: outer TLS is the sole encryption layer protecting Route Credentials and source-code streams. Terminate TLS directly on `as-control-plane` or on a reverse proxy you fully control.
+3. **Never enable no-login mode in production**: keep `-local-no-login=false` (the default) and never expose a loopback debug instance via port forwarding.
 </Aside>
 
-您可以根据服务器运维习惯选择以下任一部署拓扑：
+Choose whichever topology matches your server setup:
 
 <Tabs>
-  <TabItem label="方式 A：控制面直接终止 TLS">
-    适合单机直连部署，无需额外部署 Nginx 或 Caddy。确保数据库、NATS 与 Redis 连接串通过环境变量传入（避免出现在进程参数列表中）：
+  <TabItem label="Option A: Direct TLS Termination">
+    Ideal for single-server deployments without Nginx or Caddy. Pass database, NATS, and Redis credentials via environment variables so secrets do not appear in process argument lists:
 
     ```bash
     export AS_CONTROL_PLANE_PG_URL="postgres://user:pass@127.0.0.1:5432/seedrail?sslmode=disable"
@@ -56,8 +56,8 @@ node scripts/build-host-binaries.ts
       -node-dist-dir /opt/seedrail/node-dist
     ```
   </TabItem>
-  <TabItem label="方式 B：部署在自有反向代理之后">
-    若服务器已有 Caddy / Nginx 统一管理 443 端口证书，让 `as-control-plane` 仅监听内网或本机回环地址，并通过 `-trusted-proxy-cidrs` 声明反向代理所在网段，确保限流配额按真实客户端 IP 统计：
+  <TabItem label="Option B: Behind Your Own Reverse Proxy">
+    If Caddy or Nginx already manages port 443 on your server, bind `as-control-plane` to loopback or a private interface and declare your proxy subnet in `-trusted-proxy-cidrs` so rate limits key off real client IPs:
 
     ```bash
     export AS_CONTROL_PLANE_PG_URL="postgres://user:pass@127.0.0.1:5432/seedrail?sslmode=disable"
@@ -72,58 +72,58 @@ node scripts/build-host-binaries.ts
       -node-dist-dir /opt/seedrail/node-dist
     ```
 
-    反向代理侧需满足三项转发要求：
-    - 支持 **WebSocket Upgrade**（覆盖 `/connection/websocket` 与 `/v1/node/*`）；
-    - 原样透传 `Authorization` 请求头；
-    - 正确写入 `X-Forwarded-For` 请求头。
+    Ensure your reverse proxy satisfies three forwarding rules:
+    - Enables **WebSocket Upgrade** (covering `/connection/websocket` and `/v1/node/*`);
+    - Passes the `Authorization` header through unmodified;
+    - Sets `X-Forwarded-For` accurately.
   </TabItem>
 </Tabs>
 
-## 核心配置参数速查
+## Configuration Reference
 
-所有参数均支持命令行标志或同名环境变量（命令行标志优先级高于环境变量）：
+Every option accepts either a CLI flag or its matching environment variable (CLI flags take precedence):
 
-| 命令行标志 | 环境变量 | 默认值 | 说明 |
+| CLI Flag | Environment Variable | Default | Description |
 | --- | --- | --- | --- |
-| `-listen` | `AS_CONTROL_PLANE_LISTEN` | `127.0.0.1:8080` | HTTP/HTTPS 监听地址 |
-| `-base-url` | `AS_CONTROL_PLANE_BASE_URL` | 实际监听地址 | 浏览器与被控机访问的公网 HTTPS Origin（生成登录链接与 `install.sh` 均以此为准，不取请求 `Host` 头） |
-| `-pg` | `AS_CONTROL_PLANE_PG_URL` | 本地默认 DSN | PostgreSQL 连接串（启动时自动按序执行内嵌迁移；生产环境请经环境变量传入） |
-| `-nats` | `AS_CONTROL_PLANE_NATS_URL` | `nats://127.0.0.1:14222` | NATS（含 JetStream）连接地址，支持在 URL userinfo 中携带 Account 凭据 |
-| `-redis-url` | `AS_CONTROL_PLANE_REDIS_URL` | 空 | Redis 地址，仅存一次性节点安装令牌；未配置或暂不可达时仅影响新增/重装节点，不影响存量在线节点 |
-| `-env-name` | `AS_CONTROL_PLANE_ENV_NAME` | `prod` | 环境标识，作为 Redis 令牌键前缀 `<env>:` |
-| `-node-dist-dir` | `AS_CONTROL_PLANE_NODE_DIST_DIR` | 空 | 存放三平台节点 `.tar.gz` 与 `.sha256` 的目录 |
-| `-tls-cert-file` / `-tls-key-file` | `AS_CONTROL_PLANE_TLS_CERT_FILE` / `AS_CONTROL_PLANE_TLS_KEY_FILE` | 空 | 控制面自行终止 TLS 时的 PEM 证书链与私钥路径 |
-| `-trusted-proxy-cidrs` | `AS_CONTROL_PLANE_TRUSTED_PROXY_CIDRS` | 空 | 逗号分隔的可信反向代理 CIDR 列表 |
-| `-attachment-dir` | `AS_CONTROL_PLANE_ATTACHMENT_DIR` | `~/.local/state/agent-system/attachments` | 消息附件字节存储目录 |
-| （仅环境变量） | `AS_CONTROL_PLANE_DELEGATION_KEY` | 附件目录同级的 `delegation.key` | 驱动委派令牌 HMAC 密钥（至少 16 字符；未设置时首次启动自动生成 `0600` 密钥文件，重启须保持不变） |
-| `-session-ttl` | `AS_CONTROL_PLANE_SESSION_TTL` | `720h` | 登录会话空闲过期时长（活跃使用期间自动滑动续期） |
+| `-listen` | `AS_CONTROL_PLANE_LISTEN` | `127.0.0.1:8080` | HTTP/HTTPS listen address |
+| `-base-url` | `AS_CONTROL_PLANE_BASE_URL` | Listen address | Canonical public HTTPS origin used when minting login URLs and `install.sh` (ignores request `Host` headers) |
+| `-pg` | `AS_CONTROL_PLANE_PG_URL` | Local dev DSN | PostgreSQL connection string (runs embedded migrations on startup; pass via env var in production) |
+| `-nats` | `AS_CONTROL_PLANE_NATS_URL` | `nats://127.0.0.1:14222` | NATS (with JetStream) URL; supports account credentials in URL userinfo |
+| `-redis-url` | `AS_CONTROL_PLANE_REDIS_URL` | Empty | Redis URL storing 1-hour node enrollment tokens only; if unset or unreachable, only new/re-enrollment is paused while existing online hosts stay unaffected |
+| `-env-name` | `AS_CONTROL_PLANE_ENV_NAME` | `prod` | Environment name used as the Redis token key prefix (`<env>:`) |
+| `-node-dist-dir` | `AS_CONTROL_PLANE_NODE_DIST_DIR` | Empty | Directory containing `<os>-<arch>.tar.gz` and `.sha256` node bundles |
+| `-tls-cert-file` / `-tls-key-file` | `AS_CONTROL_PLANE_TLS_CERT_FILE` / `AS_CONTROL_PLANE_TLS_KEY_FILE` | Empty | PEM certificate chain and private key paths when terminating TLS directly |
+| `-trusted-proxy-cidrs` | `AS_CONTROL_PLANE_TRUSTED_PROXY_CIDRS` | Empty | Comma-separated list of trusted reverse-proxy CIDRs |
+| `-attachment-dir` | `AS_CONTROL_PLANE_ATTACHMENT_DIR` | `~/.local/state/agent-system/attachments` | Directory storing message attachment blobs |
+| *(env var only)* | `AS_CONTROL_PLANE_DELEGATION_KEY` | Sibling `delegation.key` file | HMAC secret for delegation tokens (≥16 chars; auto-generates a `0600` key file on first boot and must persist across restarts) |
+| `-session-ttl` | `AS_CONTROL_PLANE_SESSION_TTL` | `720h` | Idle session expiration window (sliding renewal while active) |
 
-## 第三步：首次管理员登录与数据备份
+## Step 3: First Admin Login & Backups
 
 <Steps>
 
-1. **检查服务健康状态**
+1. **Verify health probe**
 
    ```bash
    curl -f https://cp.example.com/healthz
    ```
 
-2. **签发首次登录链接**
+2. **Mint your initial login link**
 
-   在控制面服务器终端运行内置 `token generate` 子命令，生成一次性管理员登录链接（默认 10 分钟内单次兑换有效）：
+   Run the built-in `token generate` subcommand on the Control Plane server to issue a single-use login URL (valid for 10 minutes by default):
 
    ```bash
    ./as-control-plane token generate -base-url https://cp.example.com
    ```
 
-   将终端 stdout 打印的 `https://cp.example.com/login?token=...` 复制到浏览器打开即可完成登录。
+   Open the printed `https://cp.example.com/login?token=...` URL in your browser to sign in.
 
-3. **配置定期备份**
+3. **Schedule paired backups**
 
-   控制面仅运行单实例 Writer，状态集中且易于备份：
-   - **必备份（成对保存）**：PostgreSQL 数据库 + `-attachment-dir` 附件目录（及同级自动生成的 `delegation.key`）。所有已登记的主机身份摘要均保存在 PostgreSQL 中，灾难恢复数据库后，各台被控机会凭本机原有的 Route Credential 自动重连并恢复 `READY`，无需重新安装节点。
-   - **无需备份**：Redis（仅存临时安装令牌）与 NATS JetStream（仅作实时分发缓冲）。
+   `as-control-plane` runs as a single writer with compact durable state:
+   - **Back up together**: PostgreSQL database + `-attachment-dir` (along with the sibling `delegation.key`). Because host identity digests live in PostgreSQL, restoring from backup allows every enrolled host to reconnect automatically using its existing local Route Credential without re-running `install.sh`.
+   - **No backup required**: Redis (ephemeral enrollment tokens) and NATS JetStream (transient streaming buffer).
 
 </Steps>
 
-控制面就绪后，继续阅读 [跨主机接入被控机](/deployment/add-host/) 将您的开发电脑或远端云主机接入工作台。
+Once your Control Plane is live, continue to [Add Execution Hosts](/deployment/add-host/) to enroll laptops and remote servers.

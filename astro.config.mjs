@@ -5,8 +5,12 @@ export default defineConfig({
 	site: 'https://docs.seedrail.dev',
 	integrations: [
 		starlight({
-			title: 'Seedrail 文档',
-			description: '跨主机多 Agent 协作工作台：组件架构、本地启动与一行命令接入部署指南',
+			title: {
+				en: 'Seedrail Docs',
+				'zh-CN': 'Seedrail 文档',
+			},
+			description:
+				'Cross-host multi-agent workspace: architecture, local quickstart, and one-line node enrollment guides.',
 			favicon: '/favicon.svg',
 			head: [
 				{
@@ -23,6 +27,10 @@ export default defineConfig({
 			defaultLocale: 'root',
 			locales: {
 				root: {
+					label: 'English',
+					lang: 'en',
+				},
+				'zh-cn': {
 					label: '简体中文',
 					lang: 'zh-CN',
 				},
@@ -40,22 +48,41 @@ export default defineConfig({
 			customCss: ['./src/styles/custom.css'],
 			sidebar: [
 				{
-					label: '开始使用',
+					label: 'Getting Started',
+					translations: { 'zh-CN': '开始使用' },
 					items: [
-						{ label: '本地快速开始', slug: 'getting-started/quickstart' },
+						{
+							label: 'Local Quickstart',
+							translations: { 'zh-CN': '本地快速开始' },
+							slug: 'getting-started/quickstart',
+						},
 					],
 				},
 				{
-					label: '核心概念',
+					label: 'Core Concepts',
+					translations: { 'zh-CN': '核心概念' },
 					items: [
-						{ label: '组件与架构总览', slug: 'concepts/architecture' },
+						{
+							label: 'Architecture Overview',
+							translations: { 'zh-CN': '组件与架构总览' },
+							slug: 'concepts/architecture',
+						},
 					],
 				},
 				{
-					label: '跨主机部署',
+					label: 'Deployment',
+					translations: { 'zh-CN': '跨主机部署' },
 					items: [
-						{ label: '服务端部署控制面', slug: 'deployment/control-plane' },
-						{ label: '跨主机接入被控机', slug: 'deployment/add-host' },
+						{
+							label: 'Deploy Control Plane',
+							translations: { 'zh-CN': '服务端部署控制面' },
+							slug: 'deployment/control-plane',
+						},
+						{
+							label: 'Add Execution Hosts',
+							translations: { 'zh-CN': '跨主机接入被控机' },
+							slug: 'deployment/add-host',
+						},
 					],
 				},
 			],

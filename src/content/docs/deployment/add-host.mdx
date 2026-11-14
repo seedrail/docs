@@ -1,77 +1,77 @@
 ---
-title: 跨主机接入被控机
-description: 使用一行 install.sh 命令将 macOS 或 Linux 开发机注册为被控执行节点，管理目录授权、用户级服务与重装恢复。
+title: Add Execution Hosts
+description: Enroll macOS and Linux machines as execution hosts with a single install.sh command, manage --root folder scoping, supervise user services, and recover in place.
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-任何安装了编码工具链的开发笔记本、办公室工作站或云服务器，都可以通过一行命令接入已部署好的控制面。整个过程**无需 `sudo` 提权**（Linux 首次开启后台驻留除外）、**无需开放任何入站防火墙端口**，也不会暴露通用 SSH 通道。
+Any developer laptop, office workstation, or cloud VM with your coding toolchain installed can join a Control Plane with a single command — **without `sudo`** (except enabling systemd user lingering once on Linux if disabled), **without opening inbound firewall ports**, and without exposing SSH access.
 
-## 被控机系统要求
+## Host Requirements
 
-- **支持平台**：`darwin-arm64`（Apple Silicon macOS）、`linux-amd64`、`linux-arm64`
-- **基础命令行工具**：`sh`、`curl`、`tar`，以及 `sha256sum`（或 macOS 自带的 `shasum`）
-- **网络条件**：能够出站访问控制面的 HTTPS 地址（如 `https://cp.example.com`）
+- **Supported platforms**: `darwin-arm64` (Apple Silicon macOS), `linux-amd64`, `linux-arm64`
+- **Standard CLI utilities**: `sh`, `curl`, `tar`, and `sha256sum` (or `shasum` on macOS)
+- **Network**: Outbound HTTPS reachability to your Control Plane (for example `https://cp.example.com`)
 
-## 生成并执行一行接入命令
+## Generate & Run the One-Line Enrollment Command
 
-您可以通过 Web 界面交互生成安装命令，也可以在控制面服务器上使用 CLI 批量生成（适合无人值守或自动化编排）：
+Generate an enrollment command either interactively from the Web UI or headlessly via the Control Plane CLI:
 
 <Tabs>
-  <TabItem label="通过 Web 界面添加主机">
-    1. 登录 Web 工作台，进入 **Host（主机管理）** 页面，点击 **添加主机**。
-    2. 输入易于识别的主机名称（如 `macbook-pro` 或 `gpu-dev-01`）。
-    3. 页面立即生成带有 1 小时倒计时的一次性安装命令：
+  <TabItem label="From the Web UI">
+    1. Sign in to the Web workspace, open **Hosts**, and click **Add Host**.
+    2. Enter a recognizable host label (for example `macbook-pro` or `gpu-dev-01`).
+    3. Copy the generated one-line command (valid for 1 hour):
 
        ```bash
        curl -fsSL https://cp.example.com/install.sh | AS_INSTALL_TOKEN=ast_xxxxxxxx sh
        ```
 
-    4. 登录目标被控机终端粘贴执行；注册成功后，Web 页面会自动从等待状态切换为 **已连接（READY）**。
+    4. Paste and run it in a terminal on the target machine; the Web UI automatically transitions from waiting to **Connected (READY)**.
   </TabItem>
-  <TabItem label="通过控制面 CLI 无人值守生成">
-    如果您拥有控制面服务器的 Shell 权限，无需打开浏览器即可直接签发等效的一行安装命令：
+  <TabItem label="Headless via Control Plane CLI">
+    If you have shell access on the Control Plane server, mint an identical one-line enrollment command directly without opening a browser:
 
     ```bash
     ./as-control-plane host install-command --name gpu-dev-01
     ```
 
-    将输出的命令在目标机器上执行即可完成注册。每个 `AS_INSTALL_TOKEN` 有效期为 **1 小时**，且仅可消费一次；令牌仅通过环境变量传入，不会暴露在进程参数（`ps` / `argv`）中。
+    Run the printed command on the target host. Every `AS_INSTALL_TOKEN` expires after **1 hour**, can be consumed only once, and is passed via environment variable so it never leaks in `ps` / `argv`.
   </TabItem>
 </Tabs>
 
-## `install.sh` 在被控机上做了什么
+## What `install.sh` Does on the Host
 
-脚本严格按以下 6 个步骤顺序执行，任一步失败都会立即中止并打印明确原因：
+The installer executes six deterministic steps and aborts immediately with a clear reason if any step fails:
 
 <Steps>
 
-1. **识别系统架构**
-   检测当前 OS 与 CPU 架构（仅接受 `darwin-arm64`、`linux-amd64`、`linux-arm64`，其余平台报 `UNSUPPORTED_PLATFORM` 并原样退出，不改动任何文件）。
+1. **Detect OS and CPU architecture**
+   Validates `darwin-arm64`, `linux-amd64`, or `linux-arm64` (exits cleanly with `UNSUPPORTED_PLATFORM` without modifying any files otherwise).
 
-2. **下载同版本二进制并校验 SHA-256**
-   从控制面 `/downloads/node/<os>-<arch>.tar.gz` 下载归档包与 `.sha256` 摘要文件，校验通过后才进入安装阶段。
+2. **Download version-matched binaries and verify SHA-256**
+   Downloads `/downloads/node/<os>-<arch>.tar.gz` and its `.sha256` digest from the Control Plane, verifying integrity before unpacking.
 
-3. **平滑停止既有服务**
-   若本机已运行旧版节点服务，先安全停止进程。
+3. **Gracefully stop any existing node service**
+   Stops an older local node daemon cleanly if one is already running.
 
-4. **解压至用户私有目录**
-   将 `as-workspace-server`、`as-adapter-host` 与 `as-delegate` 安装到 `~/.agent-system/node/bin/`（目录权限 `0700`），全程不污染系统全局目录。
+4. **Unpack into a user-private directory**
+   Installs `as-workspace-server`, `as-adapter-host`, and `as-delegate` into `~/.agent-system/node/bin/` (`0700` permissions) without touching global system paths.
 
-5. **向控制面兑换长期路由凭据**
-   执行 `as-workspace-server node register --url <cp-origin>`，消费 `AS_INSTALL_TOKEN`，在 `~/.agent-system/node/state/`（文件权限 `0600`）中保存分配到的 `host_id` 与专属 Route Credential。
+5. **Exchange token for a long-lived Route Credential**
+   Runs `as-workspace-server node register --url <cp-origin>`, consuming `AS_INSTALL_TOKEN` and writing the assigned `host_id` and Route Credential into `~/.agent-system/node/state/` (`0600` permissions).
 
-6. **注册并启动用户级守护服务**
-   执行 `as-workspace-server node service install`，自动采集当前用户登录 Shell 及常见 CLI 目录（如 `~/.local/bin`、`~/.nvm`、`/opt/homebrew/bin` 等）写入服务 `PATH`，确保本机安装的 Claude / Codex 等工具可被直接发现，随后拉起 `node run` 连入控制面。
+6. **Install and start the user-level background service**
+   Runs `as-workspace-server node service install`, capturing your login shell `PATH` and common CLI locations (`~/.local/bin`, `~/.nvm`, `/opt/homebrew/bin`, etc.) so locally installed Claude Code / Codex binaries are discoverable, then launches `node run` to dial the Control Plane.
 
 </Steps>
 
-## 目录授权（`--root`）策略
+## Directory Authorization (`--root`) Policy
 
-为了保护您机器上的隐私文件，节点采用**最小目录授权**设计：
+Nodes enforce **least-privilege directory scoping** to protect private files on your machine:
 
-- **默认零预授权（即装即用）**：直接执行上述默认安装命令时，不会把任何目录预先批量授权给 Agent。安装用户的 `Home` 目录仅作为 Web 目录选择器的**只读浏览起点**，只有当您在新建项目弹窗中显式选中并确认某个代码子目录时，该目录才会被持久绑定并授权（系统拒绝将整个 `Home` 根目录直接作为项目工作区）。
-- **安装时批量预授权固定代码根**：若希望预先开放指定工作目录（如服务器上的 `/srv/code`），可在 `sh` 后通过 `-s -- --root` 追加一个或多个路径：
+- **Zero pre-authorization by default**: Running the standard install command above does **not** pre-authorize your machine for agent access. Your OS `Home` directory acts solely as a **read-only browsing root** for the Web folder picker — only specific project subdirectories you explicitly pick and confirm when creating a project are bound and persisted (binding `Home` itself as a project workspace is rejected).
+- **Pre-authorizing fixed code roots at install time**: To pre-authorize dedicated workspace roots on a server (such as `/srv/code`), pass one or more `--root` flags via `sh -s --`:
 
 ```bash
 curl -fsSL https://cp.example.com/install.sh | AS_INSTALL_TOKEN=ast_xxxxxxxx sh -s -- \
@@ -79,39 +79,39 @@ curl -fsSL https://cp.example.com/install.sh | AS_INSTALL_TOKEN=ast_xxxxxxxx sh 
   --root /data/repos
 ```
 
-<Aside type="tip" title="后续调整预授权目录">
-需要增减 `--root` 列表或刷新新安装的全局 CLI `PATH` 时，只需在 Host 页面重新生成一条安装命令，带上新的完整 `--root` 列表在同一台机器上再跑一次即可（不带 `--root` 重装则会保留原先记录的 `--root` 列表）。
+<Aside type="tip" title="Updating Pre-Authorized Roots Later">
+To update `--root` paths or refresh newly installed CLI `PATH` entries, generate a fresh install command on the Hosts page and re-run it on the same machine with the updated `--root` list (re-running without `--root` preserves previously recorded roots).
 </Aside>
 
-## 操作系统服务托管差异
+## OS Service Supervision
 
-节点默认注册为当前用户的后台服务，不同操作系统的生命周期行为如下：
+Nodes register as user-level background services tailored to each operating system:
 
 <Tabs>
   <TabItem label="Linux (systemd --user)">
-    - **服务单元位置**：`~/.config/systemd/user/agent-system-node.service`
-    - **开机自启与退出会话驻留**：`node service install` 会自动尝试执行 `loginctl enable-linger "$USER"`，保证机器重启后自动上线、SSH 退出登录后依然保持后台运行。
-    - **权限提示**：若受限环境不允许普通用户开启 linger，命令会以退出码 `6` 结束并打印需要管理员代为执行的那条 `sudo loginctl enable-linger <user>` 命令，执行后再重跑一次 `service install` 即可。
+    - **Unit file**: `~/.config/systemd/user/agent-system-node.service`
+    - **Boot & logout persistence**: `node service install` automatically runs `loginctl enable-linger "$USER"` so the node comes online at boot and stays running after SSH logout.
+    - **Restricted environments**: If unprivileged `enable-linger` is disallowed, the installer exits with code `6` and prints the exact `sudo loginctl enable-linger <user>` command for an administrator to run once before re-running `service install`.
   </TabItem>
   <TabItem label="macOS (LaunchAgent)">
-    - **服务定义位置**：`~/Library/LaunchAgents/io.agentsystem.node.plist`
-    - **自动加载域**：桌面终端执行时挂载至 `gui/<uid>` 域，纯 SSH 会话执行时挂载至 `user/<uid>` 域，无需 `sudo`。
-    - **运行周期**：macOS LaunchAgent 随该用户**登录系统后自动启动**；若在 macOS 上完全注销（Log Out）当前图形账户，服务会在下次登录前暂停运行。
+    - **Plist location**: `~/Library/LaunchAgents/io.agentsystem.node.plist`
+    - **Launchd domain**: Loads into `gui/<uid>` when run from a desktop terminal or `user/<uid>` over SSH — no `sudo` required.
+    - **Lifecycle**: Starts automatically whenever that macOS user logs in; logging out of the macOS GUI account pauses the agent until the next login.
   </TabItem>
 </Tabs>
 
-## 节点日常运维、升级与卸载
+## Day-2 Operations, Upgrades & Uninstall
 
-被控机上的 `~/.agent-system/node/bin/as-workspace-server` 提供了完整的本地运维子命令：
+Manage the local node directly via `~/.agent-system/node/bin/as-workspace-server`:
 
-| 命令 | 用途说明 |
+| Command | Purpose |
 | --- | --- |
-| `~/.agent-system/node/bin/as-workspace-server node status` | 输出安全的 JSON 状态摘要（含 `host_id`、双服务 ID、版本号与网关连接状态，不含任何敏感凭据） |
-| `~/.agent-system/node/bin/as-workspace-server node service install` | 幂等刷新用户级服务配置（含重新探测登录 Shell `PATH`）并重启节点服务 |
-| `~/.agent-system/node/bin/as-workspace-server node service uninstall` | 停止并移除系统自启服务，但保留 `~/.agent-system/node/` 二进制与状态文件 |
-| `~/.agent-system/node/bin/as-workspace-server node uninstall` | 停止移除服务并彻底删除 `~/.agent-system/node/`（绝不触碰您的业务代码仓库与本地 Provider 登录态） |
+| `~/.agent-system/node/bin/as-workspace-server node status` | Prints a safe JSON status summary (`host_id`, service IDs, version, and gateway state, with zero secret material) |
+| `~/.agent-system/node/bin/as-workspace-server node service install` | Idempotently refreshes the user service definition (re-probing login shell `PATH`) and restarts the node |
+| `~/.agent-system/node/bin/as-workspace-server node service uninstall` | Stops and removes OS auto-start while keeping `~/.agent-system/node/` binaries and state |
+| `~/.agent-system/node/bin/as-workspace-server node uninstall` | Stops the service and removes `~/.agent-system/node/` completely (never touches your repositories or local Provider logins) |
 
-### 版本升级与移除后原位恢复
+### Version Upgrades & In-Place Re-Enrollment
 
-- **平滑升级**：当控制面升级且主版本号变化时，旧节点会显示 `VERSION_INCOMPATIBLE`。只需在 Host 页面重新生成安装命令并在该机器上执行一次，只要 `~/.agent-system/node/state/` 仍在，节点就会自动携带旧凭据证明身份、轮换新凭据，并**保持原有的 `host_id` 与所有已绑定的项目无缝恢复**。
-- **误删主机恢复**：若在 Web 界面移除了某台主机，控制面会立即断开其隧道并吊销旧凭据（节点收到拒绝后安静退出，不会死循环重试）。日后若想重新接入同一台机器，重新运行一次安装命令即可原地复活原 `host_id`。
+- **Smooth upgrades**: When a Control Plane upgrade introduces a major protocol version bump, older nodes report `VERSION_INCOMPATIBLE`. Generate a new install command and run it on the host — as long as `~/.agent-system/node/state/` still exists, the node proves identity with its previous credential, rotates credentials, and **preserves its original `host_id` and all bound projects seamlessly**.
+- **Recovering a removed host**: Removing a host in the Web UI immediately closes its tunnel and revokes its credential (the daemon exits cleanly without retry loops). Running a new install command on that machine later revives the original `host_id` in place.

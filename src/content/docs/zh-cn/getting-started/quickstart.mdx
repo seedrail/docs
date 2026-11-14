@@ -1,0 +1,99 @@
+---
+title: 本地快速开始
+description: 在单台开发机上准备环境、拉起共享依赖与完整应用栈，并登录 Web 或 macOS 桌面客户端。
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+本指南帮助您在本地 macOS 或 Linux 开发机上快速启动完整的 Seedrail 运行环境（包含控制面、Web 客户端以及自动注册到本机的执行节点），体验多 Worktree 与多 Agent 协作流程。
+
+## 环境前置要求
+
+开始前请确认本机已安装以下工具且位于 `PATH` 中：
+
+- **Docker**（带 `docker compose`，用于一键启动本地共享的 PostgreSQL、NATS JetStream 与 Redis）
+- **Go 1.26+** 与热重载工具 **Air**（若尚未安装 Air，可执行 `go install github.com/air-verse/air@latest`）
+- **Node.js 22+** 与 **pnpm 10+**
+- **PostgreSQL 客户端工具 `psql`** 与进程编排工具 **`process-compose`**
+
+## 四步启动本地环境
+
+所有命令均在仓库根目录下执行：
+
+<Steps>
+
+1. **安装工作区依赖并拉起基础容器**
+
+   一台机器只需启动一套共享的 PostgreSQL、NATS 和 Redis 容器，多个本地环境或不同 Git Worktree 会自动按数据库名、NATS Account 与 Redis 键前缀隔离：
+
+   ```bash
+   pnpm install
+   make deps-up
+   ```
+
+   `make deps-up` 会等待三个容器全部通过健康检查，并打印本机默认连接地址（PostgreSQL `15432`、NATS `14222`、Redis `16379`）。可随时运行 `make deps-status` 查看容器状态。
+
+2. **启动完整应用栈**
+
+   根据您的终端使用习惯选择交互式 TUI 或后台守护模式启动（脚本会自动在 `.env` 中分配不冲突的端口，并完成本机节点的自动注册）：
+
+   <Tabs>
+     <TabItem label="后台启动（推荐）">
+       ```bash
+       make dev-detached
+       ```
+       启动完成后可直接在同一终端继续执行健康检查与登录命令；如需查看实时进程面板，随时运行 `make dev-attach`。
+     </TabItem>
+     <TabItem label="交互式 TUI 面板">
+       ```bash
+       make dev
+       ```
+       终端将直接打开 `process-compose` 交互视图查看各服务实时日志；后续登录命令请在另一个终端窗口中执行。
+     </TabItem>
+   </Tabs>
+
+3. **验证服务状态并获取一次性登录链接**
+
+   检查当前环境运行状态与 HTTP 探针，然后签发有效期 1 小时的一次性登录链接：
+
+   ```bash
+   make dev-ls
+   cp_port=$(sed -n 's/^LOCALDEV_CP_PORT=//p' .env)
+   web_port=$(sed -n 's/^LOCALDEV_WEB_PORT=//p' .env)
+   curl -f "http://127.0.0.1:${cp_port}/healthz"
+   curl -f "http://127.0.0.1:${web_port}/"
+   make dev-login
+   ```
+
+   在浏览器中打开 `make dev-login` 输出的登录 URL，即可自动兑换长期会话并进入已关联本机节点的协作工作台。链接过期后重新运行 `make dev-login` 即可。
+
+4. **（可选）连接 macOS 桌面客户端**
+
+   如果您已将桌面端安装在 `/Applications/Seed.app`，可直接将当前环境的控制面地址与一次性令牌唤起至桌面客户端：
+
+   ```bash
+   make dev-login-desktop
+   ```
+
+   <Aside type="tip" title="自定义客户端路径与切换环境">
+   若 `Seed.app` 安装在其他目录，可通过 `AS_DESKTOP_APP_PATH=/path/to/Seed.app make dev-login-desktop` 指定。如果桌面端已在运行，请先退出应用再执行该命令以切换所连接的控制面环境。
+   </Aside>
+
+</Steps>
+
+## 常用环境管理与回收命令
+
+日常暂停开发或彻底清理某个分支环境的测试数据时，按需选用以下命令：
+
+| 命令 | 作用说明 |
+| --- | --- |
+| `make dev-ls` | 列出本机登记的所有本地开发栈状态、端口与所属目录 |
+| `make dev-down` | 停止当前环境的进程，但**保留**数据库、NATS 游标与附件状态，下次 `make dev` 无缝续接 |
+| `make dev-drop` | 停止当前环境并**彻底删除**其独立数据库、NATS Account 与本地状态目录（不影响其他环境） |
+| `make deps-down` | 所有本地环境都不再使用时，停止共享的 PostgreSQL / NATS / Redis 容器（保留数据卷） |
+| `make deps-reset` | 停止共享容器并清空全部本地数据卷（破坏性操作，仅在需要彻底重置整机开发库时使用） |
+
+## 下一步
+
+- 想把控制面部署到云服务器随时随地通过域名访问？请阅读 [服务端部署控制面](/zh-cn/deployment/control-plane/)。
+- 想将手头的另一台 Linux 云主机或 MacBook 接入同一个工作台？请阅读 [跨主机接入被控机](/zh-cn/deployment/add-host/)。
