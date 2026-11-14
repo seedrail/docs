@@ -48,6 +48,11 @@ export default defineConfig({
 			customCss: ['./src/styles/custom.css'],
 			sidebar: [
 				{
+					label: 'Overview',
+					translations: { 'zh-CN': '文档总览' },
+					slug: 'index',
+				},
+				{
 					label: 'Getting Started',
 					translations: { 'zh-CN': '开始使用' },
 					items: [

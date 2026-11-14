@@ -4,338 +4,291 @@ const isZh = route.lang === 'zh-CN' || route.locale === 'zh-cn';
 const prefix = isZh ? '/zh-cn' : '';
 
 const icons = {
-	shield: `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`,
-	git: `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 15V9a3 3 0 0 0-3-3H9"/></svg>`,
-	file: `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>`,
-	heal: `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>`,
+	layers: `<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+	terminal: `<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
+	server: `<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`,
+	host: `<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`,
 };
 
 const content = isZh
 	? {
-			featuresHeading: '核心能力与架构特性',
-			featuresLead:
-				'单机自包含体验与跨地域多机集群共用同一套通信契约：控制面集中管理身份与事件回放，代码执行与工具链原生留在每台开发机本地。',
-			features: [
-				{
-					badge: 'Outbound WSS',
-					title: '纯出站零端口暴露接入',
-					body: '被控开发机或云服务器无需开放任何入站 TCP 端口、无需配置 SSH 密钥转发。节点通过一行 install.sh 注册为用户级守护服务，主动出站建立受控加密隧道。',
-					meta: '无公网 IP · 免内网穿透 · 0600 私有 Socket',
-					icon: icons.shield,
-				},
-				{
-					badge: 'Parallel Context',
-					title: '多工作树与多会话并行',
-					body: '围绕 Project → Task → Worktree → Conversation → Session 五级结构隔离上下文，在同一控制面同时调度多台机器上的 Claude Code、Codex 等原生 Agent CLI。',
-					meta: '独占 Git Worktree · 多分支零冲突',
-					icon: icons.git,
-				},
-				{
-					badge: 'Host-Authoritative',
-					title: '执行机权威文件与实时流',
-					body: '代码始终留在被控机本地磁盘，不向控制面上传整仓副本；目录树、Git Diff、PTY 终端与运行时增量片段通过统一 CloudEvents 信封实时推送至客户端。',
-					meta: '最小目录授权 · 本地端口安全预览',
-					icon: icons.file,
-				},
-				{
-					badge: 'Fault-Tolerant',
-					title: '断线自愈与防串机保护',
-					body: '网络闪断或控制面滚动重启不会中断被控机上已受理的编码回合，重连后自动按事件游标续传；目标主机离线时明确报错，绝不静默改投到其他机器。',
-					meta: '游标续传 · 父进程指数退避守护',
-					icon: icons.heal,
-				},
-			],
-			workflowHeading: '从部署到跨机协作，三步闭环',
-			workflowLead: '无需繁琐的证书签发、VPN 组网或代码镜像同步，按角色拆分控制面与执行机职责。',
-			steps: [
-				{
-					num: '01',
-					title: '拉起控制面入口',
-					bodyHtml:
-						'本地使用 <code>make dev-detached</code> 一键就绪；生产服务器仅需上传单个 <code>as-control-plane</code> 二进制并配好公共 CA HTTPS。',
-					cmd: './as-control-plane -base-url https://cp.example.com',
-				},
-				{
-					num: '02',
-					title: '一行命令登记被控机',
-					bodyHtml:
-						'在 Web 主机页或 CLI 生成单次令牌，在 MacBook、办公工作站或 GPU 云主机粘贴执行，自动装为用户级后台服务并出站建连。',
-					cmd: 'curl -fsSL .../install.sh | AS_INSTALL_TOKEN=ast_... sh',
-				},
-				{
-					num: '03',
-					title: '多工作树并行驱动 Agent',
-					bodyHtml:
-						'在浏览器或 macOS 客户端按需浏览并授权目标仓库目录，为每个任务开辟独立 Git Worktree，实时查看文件变更、终端与多会话流。',
-					cmd: 'Project → Task → Worktree → Conversation → Session',
-				},
-			],
-			routesHeading: '按场景阅读指南',
-			routesLead:
-				'无论是在笔记本上快速跑通一套本地环境，还是为团队搭建跨主机研发基础设施，从对应章节直接切入。',
-			tagsAria: '本篇涵盖主题',
+			routesHeading: '文档导览',
 			routes: [
 				{
-					step: '01 · 架构认知',
+					code: 'CONCEPTS',
+					icon: icons.layers,
 					title: '组件与架构总览',
 					href: `${prefix}/concepts/architecture/`,
-					desc: '一张图看懂客户端、控制面（as-control-plane）、基础设施与被控节点（Workspace + Adapter）四层边界，以及纯出站 WSS/h2c 隧道的工作机制。',
-					tags: ['四层拓扑', '五级领域模型', '安全信任边界'],
+					desc: '客户端、控制面（as-control-plane）、基础设施与被控节点（Workspace + Adapter）四层边界及纯出站 WSS 隧道机制。',
+					cta: '阅读架构总览',
 				},
 				{
-					step: '02 · 单机体验',
+					code: 'LOCAL DEV',
+					icon: icons.terminal,
 					title: '本地快速开始',
 					href: `${prefix}/getting-started/quickstart/`,
-					desc: '在单台开发机上通过 Docker Compose 拉起共享依赖，一键启动热重载开发栈并签发一次性登录链接，连接 Web 或 Seed.app 桌面客户端。',
-					tags: ['make deps-up', '多环境隔离', '桌面端唤起'],
+					desc: '在单台开发机上拉起 Docker 共享依赖与热重载开发栈，签发一次性登录链接连接 Web 或 macOS Seed.app。',
+					cta: '开始本地体验',
 				},
 				{
-					step: '03 · 生产上线',
+					code: 'CONTROL PLANE',
+					icon: icons.server,
 					title: '服务端部署控制面',
 					href: `${prefix}/deployment/control-plane/`,
-					desc: '编译无运行时依赖的独立二进制与三平台节点包，配置公共信任 CA TLS 证书或自有反向代理，掌握配置参数与数据库成对备份策略。',
-					tags: ['跨平台打包', 'TLS / 反向代理', '数据备份'],
+					desc: '编译无运行时依赖的独立二进制与三平台节点包，配置公共信任 CA TLS 证书或自有反向代理及成对备份策略。',
+					cta: '查看服务端部署',
 				},
 				{
-					step: '04 · 节点扩展',
+					code: 'EXECUTION HOST',
+					icon: icons.host,
 					title: '跨主机接入被控机',
 					href: `${prefix}/deployment/add-host/`,
-					desc: '通过 Web 页面或 CLI 生成 1 小时有效的一次性安装令牌，在 macOS / Linux 机器上完成零 sudo 安装、--root 授权、服务托管与原位重装恢复。',
-					tags: ['install.sh', 'LaunchAgent / systemd', '重装保号'],
+					desc: '生成 1 小时单次安装令牌，在 macOS / Linux 开发机完成零 sudo 注册、--root 目录授权、后台托管与原位重装恢复。',
+					cta: '查看节点接入',
 				},
 			],
-			faqHeading: '常见部署与安全边界问答',
+			archHeading: '系统拓扑与核心特性',
+			topoAria: '四层出站连接拓扑图',
+			clientsSub: 'Connect RPC · WSS 增量流',
+			cpSub: 'PostgreSQL · NATS · Redis',
+			outboundLabel: '纯出站 WSS (/v1/node/*)',
+			hostSub: '0600 Unix Socket · Claude / Codex',
+			features: [
+				{
+					code: '01 / OUTBOUND WSS',
+					title: '纯出站零端口暴露接入',
+					body: '被控开发机无需公网 IP、无需开放任何入站 TCP 端口或配置 SSH 免密；一行 install.sh 注册为用户级守护服务并主动出站建连。',
+				},
+				{
+					code: '02 / WORKTREE ISOLATION',
+					title: '多工作树与多会话并行',
+					body: '按 Project → Task → Worktree → Conversation → Session 五级结构隔离上下文，跨机器并行驱动多个 Agent CLI 互不冲突。',
+				},
+				{
+					code: '03 / HOST-AUTHORITATIVE',
+					title: '执行机权威文件与实时流',
+					body: '业务代码留在被控机本地磁盘而不上传整仓镜像；目录树、Git Diff、PTY 终端与运行片段通过统一事件流实时同步。',
+				},
+				{
+					code: '04 / CURSOR RECOVERY',
+					title: '断线自愈与防串机保护',
+					body: '网络闪断或控制面滚动重启不中断运行中的编码回合，重连后按游标自动续传；目标主机离线时明确报错，绝不静默改派。',
+				},
+			],
+			faqHeading: '部署与安全边界说明',
 			faqs: [
 				{
 					q: '被控开发机在家庭 NAT、公司内网或云安全组后，需要做端口映射或内网穿透吗？',
 					aHtml:
-						'不需要。被控节点上的 <code>as-workspace-server</code> 与 <code>as-adapter-host</code> 仅在本机 <code>~/.agent-system/node/state/</code> 下监听权限为 <code>0600</code> 的私有 Unix Socket，对外不监听任何 TCP 端口。只要被控机能够像普通浏览器一样出站访问控制面的 HTTPS 端口（如 443），就能完成注册并保持双向加密连接。',
+						'不需要。<code>as-workspace-server</code> 与 <code>as-adapter-host</code> 仅在本机 <code>~/.agent-system/node/state/</code> 下监听 <code>0600</code> 私有 Unix Socket，对外零 TCP 端口监听；只要能出站访问控制面 HTTPS 端口即可注册保持在线。',
 				},
 				{
-					q: '一行安装默认会把我的整个用户主目录（Home）授权给 Agent 读写吗？',
+					q: '一行安装默认会把整个用户主目录（Home）授权给 Agent 读写吗？',
 					aHtml:
-						'不会。默认安装采用<strong>零预授权策略</strong>：安装用户的 Home 仅作为 Web 目录选择器的只读浏览起点，拒绝将整个 Home 直接绑定为工作区。只有您在界面中显式选定确认的某一个项目子目录（或安装时通过 <code>--root /srv/code</code> 显式追加的目录）才会被持久绑定并允许 Agent 操作。',
+						'不会。默认采用<strong>零预授权策略</strong>：Home 仅作为 Web 目录选择器的只读浏览起点，拒绝直接绑定整个 Home；仅您显式确认的项目子目录或通过 <code>--root /srv/code</code> 指定的目录才会被持久授权。',
 				},
 				{
-					q: '为什么公网控制面要求使用公共信任 CA 证书，且不能放在解密流量的第三方 CDN 后？',
+					q: '为什么公网控制面必须使用公共信任 CA 证书，且不能置于解密流量的第三方 CDN 后？',
 					aHtml:
-						'被控节点与控制面之间的外层 WSS/HTTPS 是保护路由凭据（Route Credential）与业务代码字节流的唯一加密层，节点只使用操作系统根证书库验证控制面身份（不支持私有自签 CA）。将 TLS 终止在 <code>as-control-plane</code> 自身或您自有的 Nginx/Caddy 反向代理上，可确保没有任何第三方中间节点能够读取凭据或终端流量。',
+						'外层 WSS/HTTPS 是保护路由凭据（Route Credential）与代码字节流的唯一加密层，节点仅使用系统根证书库校验证书。必须在 <code>as-control-plane</code> 或自有 Nginx/Caddy 上终止 TLS，避免中间代理接触凭据。',
 				},
 				{
 					q: '升级版本或误删主机后重新执行 install.sh，已绑定的项目和任务会失效吗？',
 					aHtml:
-						'不会。只要被控机上的状态目录 <code>~/.agent-system/node/state/</code> 仍然存在，重新运行新生成的安装命令时，节点会自动出示旧路由凭据完成身份核验、轮换新凭据，并<strong>原位复用原有的 <code>host_id</code></strong>，关联在该主机名下的全部 Project 与 Worktree 会自动恢复在线。',
+						'不会。只要 <code>~/.agent-system/node/state/</code> 仍在，重新执行新安装命令会自动出示旧凭据核验身份、轮换新凭据并<strong>原位复用原 <code>host_id</code></strong>，名下项目与工作树自动恢复在线。',
 				},
 			],
 		}
 	: {
-			featuresHeading: 'Core Capabilities & Architecture',
-			featuresLead:
-				'Local single-machine setups and multi-region host fleets share the exact same protocol contract: the Control Plane manages identity and event replay while execution stays native on each developer machine.',
-			features: [
-				{
-					badge: 'Outbound WSS',
-					title: 'Zero-Inbound-Port Enrollment',
-					body: 'Execution hosts never open inbound TCP ports or expose SSH keys. A single install.sh command registers a user-level daemon that dials an encrypted outbound tunnel to your Control Plane.',
-					meta: 'No Public IP · NAT-Friendly · 0600 Private Sockets',
-					icon: icons.shield,
-				},
-				{
-					badge: 'Parallel Context',
-					title: 'Parallel Worktrees & Sessions',
-					body: 'Isolate concurrent work across a five-level hierarchy — Project → Task → Worktree → Conversation → Session — orchestrating Claude Code, Codex, and native CLIs across multiple machines.',
-					meta: 'Dedicated Git Worktrees · Zero Branch Collisions',
-					icon: icons.git,
-				},
-				{
-					badge: 'Host-Authoritative',
-					title: 'Host-Local Code & Live Streams',
-					body: 'Repositories remain on the execution host disk without uploading full repo mirrors; file trees, Git diffs, PTY terminals, and runtime deltas stream live in CloudEvents envelopes.',
-					meta: 'Least-Privilege Roots · Safe Local Port Previews',
-					icon: icons.file,
-				},
-				{
-					badge: 'Fault-Tolerant',
-					title: 'Self-Healing & Strict Host Pinning',
-					body: 'Transient disconnects or Control Plane restarts never kill running turns — nodes resume from event cursors on reconnect, and offline hosts fail explicitly rather than silently rerouting.',
-					meta: 'Cursor Replay · Exponential-Backoff Supervision',
-					icon: icons.heal,
-				},
-			],
-			workflowHeading: 'From Zero to Multi-Host in Three Steps',
-			workflowLead:
-				'No custom PKI ceremony, VPN mesh, or repository mirroring — cleanly separate Control Plane orchestration from host-local execution.',
-			steps: [
-				{
-					num: '01',
-					title: 'Bring Up the Control Plane',
-					bodyHtml:
-						'Run <code>make dev-detached</code> locally, or deploy the single static <code>as-control-plane</code> binary behind publicly trusted HTTPS in production.',
-					cmd: './as-control-plane -base-url https://cp.example.com',
-				},
-				{
-					num: '02',
-					title: 'Enroll Hosts with One Line',
-					bodyHtml:
-						'Mint a 1-hour single-use token from the Web UI or CLI, paste the command on any MacBook, workstation, or GPU server, and auto-connect outbound.',
-					cmd: 'curl -fsSL .../install.sh | AS_INSTALL_TOKEN=ast_... sh',
-				},
-				{
-					num: '03',
-					title: 'Run Parallel Agents Across Worktrees',
-					bodyHtml:
-						'Authorize specific repository folders from Web or macOS Seed.app, spin up isolated Git worktrees per task, and inspect live diffs, terminals, and turns.',
-					cmd: 'Project → Task → Worktree → Conversation → Session',
-				},
-			],
-			routesHeading: 'Explore Documentation by Scenario',
-			routesLead:
-				'Whether spinning up a local sandbox on your laptop or operating a cross-network engineering fleet, jump straight into the matching guide.',
-			tagsAria: 'Topics covered',
+			routesHeading: 'Documentation',
 			routes: [
 				{
-					step: '01 · Concepts',
+					code: 'CONCEPTS',
+					icon: icons.layers,
 					title: 'Architecture Overview',
 					href: `${prefix}/concepts/architecture/`,
-					desc: 'Understand the four-layer boundary across Clients, Control Plane (as-control-plane), Infrastructure, and Execution Hosts (Workspace + Adapter), plus outbound WSS/h2c multiplexing.',
-					tags: ['4-Layer Topology', '5-Level Workspace Model', 'Trust Boundaries'],
+					desc: 'Four-layer runtime boundary across Clients, Control Plane (as-control-plane), Infrastructure, and Execution Hosts, plus outbound WSS multiplexing.',
+					cta: 'Read architecture guide',
 				},
 				{
-					step: '02 · Local Dev',
+					code: 'LOCAL DEV',
+					icon: icons.terminal,
 					title: 'Local Quickstart',
 					href: `${prefix}/getting-started/quickstart/`,
-					desc: 'Start shared Docker dependencies on a single laptop, launch the hot-reloading stack, mint a single-use login URL, and connect Web or macOS Seed.app.',
-					tags: ['make deps-up', 'Worktree Isolation', 'Desktop Handoff'],
+					desc: 'Boot shared Docker infrastructure and the live-reload stack on a single laptop, mint a single-use login URL, and connect Web or macOS Seed.app.',
+					cta: 'Start local stack',
 				},
 				{
-					step: '03 · Production',
+					code: 'CONTROL PLANE',
+					icon: icons.server,
 					title: 'Deploy Control Plane',
 					href: `${prefix}/deployment/control-plane/`,
-					desc: 'Build dependency-free binaries and multi-platform node archives, configure publicly trusted CA TLS or your own reverse proxy, and pair PostgreSQL + attachment backups.',
-					tags: ['Cross-Platform Bundles', 'TLS & Reverse Proxy', 'Backup Strategy'],
+					desc: 'Build static binaries and multi-platform node bundles, configure publicly trusted CA TLS or your own reverse proxy, and pair PostgreSQL backups.',
+					cta: 'Deploy server',
 				},
 				{
-					step: '04 · Fleet Scale',
+					code: 'EXECUTION HOST',
+					icon: icons.host,
 					title: 'Add Execution Hosts',
 					href: `${prefix}/deployment/add-host/`,
-					desc: 'Generate 1-hour single-use install tokens via Web or CLI for sudo-free macOS/Linux enrollment, --root scoping, systemd/LaunchAgent supervision, and in-place recovery.',
-					tags: ['install.sh', 'LaunchAgent / systemd', 'In-Place Re-Enroll'],
+					desc: 'Mint 1-hour single-use install tokens via Web or CLI for sudo-free macOS/Linux enrollment, --root scoping, service supervision, and in-place recovery.',
+					cta: 'Enroll hosts',
 				},
 			],
-			faqHeading: 'Deployment & Security Boundary FAQ',
+			archHeading: 'System Topology & Guarantees',
+			topoAria: 'Four-layer outbound connection schematic',
+			clientsSub: 'Connect RPC · WSS live stream',
+			cpSub: 'PostgreSQL · NATS · Redis',
+			outboundLabel: 'Outbound WSS (/v1/node/*)',
+			hostSub: '0600 Unix Sockets · Claude / Codex',
+			features: [
+				{
+					code: '01 / OUTBOUND WSS',
+					title: 'Zero-Inbound-Port Enrollment',
+					body: 'Execution hosts require no public IP, inbound firewall rules, or SSH keys. A single install.sh command registers a user-level daemon that dials outbound.',
+				},
+				{
+					code: '02 / WORKTREE ISOLATION',
+					title: 'Parallel Worktrees & Sessions',
+					body: 'Isolate concurrent work across Project → Task → Worktree → Conversation → Session, driving Claude Code and Codex across machines without branch collisions.',
+				},
+				{
+					code: '03 / HOST-AUTHORITATIVE',
+					title: 'Host-Local Code & Live Streams',
+					body: 'Source trees stay on the execution host disk rather than mirroring full repos to the server; file diffs, PTY terminals, and turn deltas stream live.',
+				},
+				{
+					code: '04 / CURSOR RECOVERY',
+					title: 'Self-Healing & Strict Host Pinning',
+					body: 'Brief disconnects or Control Plane restarts never terminate active turns — streams resume from cursors, and offline hosts fail explicitly without silent rerouting.',
+				},
+			],
+			faqHeading: 'Operational & Security Notes',
 			faqs: [
 				{
 					q: 'Do execution hosts behind home NAT, corporate firewalls, or cloud security groups need port forwarding?',
 					aHtml:
-						'No. Both <code>as-workspace-server</code> and <code>as-adapter-host</code> listen exclusively on <code>0600</code> private Unix domain sockets under <code>~/.agent-system/node/state/</code>, opening zero TCP ports. As long as the machine can reach your Control Plane HTTPS port (such as 443) outbound, it can register and maintain multiplexed bidirectional streams.',
+						'No. Both <code>as-workspace-server</code> and <code>as-adapter-host</code> listen exclusively on <code>0600</code> private Unix sockets under <code>~/.agent-system/node/state/</code> with zero TCP ports open. Outbound HTTPS access to your Control Plane is all that is needed.',
 				},
 				{
 					q: 'Does the one-line installer grant agents read/write access to my entire Home directory by default?',
 					aHtml:
-						'No. Default enrollment enforces a <strong>zero pre-authorization policy</strong>: the OS user Home directory serves only as a read-only browsing root for the Web folder picker and cannot itself be bound as a project root. Agents can operate only inside specific project subdirectories you explicitly select and confirm (or paths explicitly passed via <code>--root /srv/code</code>).',
+						'No. Default enrollment enforces a <strong>zero pre-authorization policy</strong>: your OS Home directory serves only as a read-only picker root and cannot itself be bound as a workspace. Only subdirectories you explicitly confirm (or paths passed via <code>--root /srv/code</code>) are persisted.',
 				},
 				{
-					q: 'Why must a public Control Plane use a publicly trusted CA certificate without TLS-terminating third-party CDNs?',
+					q: 'Why must a public Control Plane use a publicly trusted CA certificate without TLS-decrypting third-party CDNs?',
 					aHtml:
-						'Outer WSS/HTTPS is the sole transport encryption layer protecting long-lived Route Credentials and workspace traffic, and execution nodes verify certificates strictly against the OS root trust store (self-signed or private CAs are rejected). Terminating TLS directly on <code>as-control-plane</code> or your own Nginx/Caddy proxy ensures no third-party intermediary can inspect credentials or terminal streams.',
+						'Outer WSS/HTTPS is the sole transport encryption layer protecting Route Credentials and workspace streams, and nodes verify certificates strictly against the OS root store. Terminate TLS on <code>as-control-plane</code> or your own Nginx/Caddy proxy.',
 				},
 				{
-					q: 'If I upgrade Seedrail or accidentally remove a host and re-run install.sh, will bound projects break?',
+					q: 'If I upgrade Seedrail or remove a host and re-run install.sh, will existing projects break?',
 					aHtml:
-						'No. As long as <code>~/.agent-system/node/state/</code> remains on the host, running a newly generated install command presents the existing Route Credential to prove identity, rotates credentials, and <strong>reuses the original <code>host_id</code> in place</strong> — bringing all bound Projects and Worktrees back online seamlessly.',
+						'No. As long as <code>~/.agent-system/node/state/</code> remains on disk, running a fresh install command proves identity with the prior credential, rotates secrets, and <strong>reuses the original <code>host_id</code> in place</strong>.',
 				},
 			],
 		};
 ---
 
 <div class="sr-landing not-content">
-	<section class="sr-section" aria-labelledby="sr-features-heading">
-		<header class="sr-section-head">
-			<p class="sr-kicker">CORE ARCHITECTURE</p>
-			<h2 id="sr-features-heading">{content.featuresHeading}</h2>
-			<p class="sr-section-lead">{content.featuresLead}</p>
-		</header>
-
-		<div class="sr-bento-grid">
-			{
-				content.features.map((item) => (
-					<article class="sr-card">
-						<header class="sr-card-top">
-							<span class="sr-card-icon" set:html={item.icon} />
-							<span class="sr-card-badge">{item.badge}</span>
-						</header>
-						<h3 class="title">{item.title}</h3>
-						<p class="sr-card-body">{item.body}</p>
-						<footer class="sr-card-foot">{item.meta}</footer>
-					</article>
-				))
-			}
-		</div>
-	</section>
-
-	<section class="sr-section sr-workflow-band" aria-labelledby="sr-workflow-heading">
-		<header class="sr-section-head">
-			<p class="sr-kicker">HOW IT WORKS</p>
-			<h2 id="sr-workflow-heading">{content.workflowHeading}</h2>
-			<p class="sr-section-lead">{content.workflowLead}</p>
-		</header>
-
-		<ol class="sr-workflow-steps">
-			{
-				content.steps.map((step) => (
-					<li class="sr-step-card">
-						<div class="sr-step-num" aria-hidden="true">
-							{step.num}
-						</div>
-						<h3>{step.title}</h3>
-						<p set:html={step.bodyHtml} />
-						<code class="sr-inline-cmd">{step.cmd}</code>
-					</li>
-				))
-			}
-		</ol>
-	</section>
-
 	<section class="sr-section" aria-labelledby="sr-routes-heading">
-		<header class="sr-section-head">
-			<p class="sr-kicker">DOCUMENTATION GUIDES</p>
-			<h2 id="sr-routes-heading">{content.routesHeading}</h2>
-			<p class="sr-section-lead">{content.routesLead}</p>
-		</header>
+		<h2 id="sr-routes-heading" class="sr-section-title">{content.routesHeading}</h2>
 
-		<div class="sr-route-grid">
-			{
-				content.routes.map((routeItem) => (
-					<article class="sr-route-card">
-						<header class="sr-route-head">
-							<span class="sr-route-step">{routeItem.step}</span>
-							<svg class="sr-route-arrow" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path d="M7 17 17 7" />
-								<path d="M7 7h10v10" />
-							</svg>
-						</header>
-						<h3 class="title">
-							<a class="card-link" href={routeItem.href}>
-								{routeItem.title}
-							</a>
-						</h3>
-						<p class="sr-route-desc">{routeItem.desc}</p>
-						<footer class="sr-route-tags" aria-label={content.tagsAria}>
-							{routeItem.tags.map((tag) => (
-								<span>{tag}</span>
-							))}
-						</footer>
-					</article>
-				))
-			}
+		<div class="sr-grid-frame">
+			<svg class="sr-corner sr-corner-tl" width="7" height="7" viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
+				<line x1="0" y1="3.5" x2="7" y2="3.5" stroke="currentColor" stroke-width="1" />
+				<line x1="3.5" y1="0" x2="3.5" y2="7" stroke="currentColor" stroke-width="1" />
+			</svg>
+			<svg class="sr-corner sr-corner-tr" width="7" height="7" viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
+				<line x1="0" y1="3.5" x2="7" y2="3.5" stroke="currentColor" stroke-width="1" />
+				<line x1="3.5" y1="0" x2="3.5" y2="7" stroke="currentColor" stroke-width="1" />
+			</svg>
+			<svg class="sr-corner sr-corner-bl" width="7" height="7" viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
+				<line x1="0" y1="3.5" x2="7" y2="3.5" stroke="currentColor" stroke-width="1" />
+				<line x1="3.5" y1="0" x2="3.5" y2="7" stroke="currentColor" stroke-width="1" />
+			</svg>
+			<svg class="sr-corner sr-corner-br" width="7" height="7" viewBox="0 0 7 7" shape-rendering="crispEdges" aria-hidden="true">
+				<line x1="0" y1="3.5" x2="7" y2="3.5" stroke="currentColor" stroke-width="1" />
+				<line x1="3.5" y1="0" x2="3.5" y2="7" stroke="currentColor" stroke-width="1" />
+			</svg>
+
+			<div class="sr-route-grid">
+				{
+					content.routes.map((routeItem) => (
+						<article class="sr-route-card">
+							<header class="sr-route-head">
+								<span class="sr-icon-box" set:html={routeItem.icon} />
+								<span class="sr-mono-tag">{routeItem.code}</span>
+							</header>
+							<h3 class="sr-route-title">
+								<a class="card-link" href={routeItem.href}>
+									{routeItem.title}
+								</a>
+							</h3>
+							<p class="sr-route-desc">{routeItem.desc}</p>
+							<footer class="sr-route-cta" aria-hidden="true">
+								<span>{routeItem.cta}</span>
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M5 12h14" />
+									<path d="m12 5 7 7-7 7" />
+								</svg>
+							</footer>
+						</article>
+					))
+				}
+			</div>
 		</div>
 	</section>
 
-	<section class="sr-section sr-faq-section" aria-labelledby="sr-faq-heading">
-		<header class="sr-section-head">
-			<p class="sr-kicker">ARCHITECTURE FAQ</p>
-			<h2 id="sr-faq-heading">{content.faqHeading}</h2>
-		</header>
+	<section class="sr-section" aria-labelledby="sr-arch-heading">
+		<h2 id="sr-arch-heading" class="sr-section-title">{content.archHeading}</h2>
+
+		<div class="sr-arch-panel">
+			<div class="sr-topology-strip" aria-label={content.topoAria}>
+				<div class="sr-topo-box">
+					<span class="sr-topo-role">CLIENTS</span>
+					<strong>Web · Seed.app</strong>
+					<small>{content.clientsSub}</small>
+				</div>
+				<div class="sr-topo-connector" aria-hidden="true">
+					<span>HTTPS / WSS</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+						<path d="M5 12h14m-5-5 5 5-5 5" />
+					</svg>
+				</div>
+				<div class="sr-topo-box sr-topo-box-cp">
+					<span class="sr-topo-role">CONTROL PLANE</span>
+					<strong>as-control-plane</strong>
+					<small>{content.cpSub}</small>
+				</div>
+				<div class="sr-topo-connector" aria-hidden="true">
+					<span>{content.outboundLabel}</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+						<path d="M19 12H5m5 5-5-5 5-5" />
+					</svg>
+				</div>
+				<div class="sr-topo-box">
+					<span class="sr-topo-role">EXECUTION HOST</span>
+					<strong>Workspace + Adapter</strong>
+					<small>{content.hostSub}</small>
+				</div>
+			</div>
+
+			<div class="sr-spec-grid">
+				{
+					content.features.map((item) => (
+						<article class="sr-spec-cell">
+							<p class="sr-spec-code">{item.code}</p>
+							<h3>{item.title}</h3>
+							<p class="sr-spec-body">{item.body}</p>
+						</article>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<section class="sr-section" aria-labelledby="sr-faq-heading">
+		<h2 id="sr-faq-heading" class="sr-section-title">{content.faqHeading}</h2>
 
 		<div class="sr-accordion">
 			{
