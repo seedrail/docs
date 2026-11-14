@@ -1,0 +1,18 @@
+:root {
+	--sl-color-accent-low: #0c2d48;
+	--sl-color-accent: #0284c7;
+	--sl-color-accent-high: #bae6fd;
+	--sl-font-system:
+		-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+		'Noto Sans CJK SC', 'Segoe UI', Roboto, sans-serif;
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: #e0f2fe;
+	--sl-color-accent: #0369a1;
+	--sl-color-accent-high: #082f49;
+}
+
+.hero {
+	padding-block: clamp(2rem, 5vw, 4rem);
+}

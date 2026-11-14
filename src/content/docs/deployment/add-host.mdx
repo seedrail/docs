@@ -1,0 +1,117 @@
+---
+title: 跨主机接入被控机
+description: 使用一行 install.sh 命令将 macOS 或 Linux 开发机注册为被控执行节点，管理目录授权、用户级服务与重装恢复。
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+任何安装了编码工具链的开发笔记本、办公室工作站或云服务器，都可以通过一行命令接入已部署好的控制面。整个过程**无需 `sudo` 提权**（Linux 首次开启后台驻留除外）、**无需开放任何入站防火墙端口**，也不会暴露通用 SSH 通道。
+
+## 被控机系统要求
+
+- **支持平台**：`darwin-arm64`（Apple Silicon macOS）、`linux-amd64`、`linux-arm64`
+- **基础命令行工具**：`sh`、`curl`、`tar`，以及 `sha256sum`（或 macOS 自带的 `shasum`）
+- **网络条件**：能够出站访问控制面的 HTTPS 地址（如 `https://cp.example.com`）
+
+## 生成并执行一行接入命令
+
+您可以通过 Web 界面交互生成安装命令，也可以在控制面服务器上使用 CLI 批量生成（适合无人值守或自动化编排）：
+
+<Tabs>
+  <TabItem label="通过 Web 界面添加主机">
+    1. 登录 Web 工作台，进入 **Host（主机管理）** 页面，点击 **添加主机**。
+    2. 输入易于识别的主机名称（如 `macbook-pro` 或 `gpu-dev-01`）。
+    3. 页面立即生成带有 1 小时倒计时的一次性安装命令：
+
+       ```bash
+       curl -fsSL https://cp.example.com/install.sh | AS_INSTALL_TOKEN=ast_xxxxxxxx sh
+       ```
+
+    4. 登录目标被控机终端粘贴执行；注册成功后，Web 页面会自动从等待状态切换为 **已连接（READY）**。
+  </TabItem>
+  <TabItem label="通过控制面 CLI 无人值守生成">
+    如果您拥有控制面服务器的 Shell 权限，无需打开浏览器即可直接签发等效的一行安装命令：
+
+    ```bash
+    ./as-control-plane host install-command --name gpu-dev-01
+    ```
+
+    将输出的命令在目标机器上执行即可完成注册。每个 `AS_INSTALL_TOKEN` 有效期为 **1 小时**，且仅可消费一次；令牌仅通过环境变量传入，不会暴露在进程参数（`ps` / `argv`）中。
+  </TabItem>
+</Tabs>
+
+## `install.sh` 在被控机上做了什么
+
+脚本严格按以下 6 个步骤顺序执行，任一步失败都会立即中止并打印明确原因：
+
+<Steps>
+
+1. **识别系统架构**
+   检测当前 OS 与 CPU 架构（仅接受 `darwin-arm64`、`linux-amd64`、`linux-arm64`，其余平台报 `UNSUPPORTED_PLATFORM` 并原样退出，不改动任何文件）。
+
+2. **下载同版本二进制并校验 SHA-256**
+   从控制面 `/downloads/node/<os>-<arch>.tar.gz` 下载归档包与 `.sha256` 摘要文件，校验通过后才进入安装阶段。
+
+3. **平滑停止既有服务**
+   若本机已运行旧版节点服务，先安全停止进程。
+
+4. **解压至用户私有目录**
+   将 `as-workspace-server`、`as-adapter-host` 与 `as-delegate` 安装到 `~/.agent-system/node/bin/`（目录权限 `0700`），全程不污染系统全局目录。
+
+5. **向控制面兑换长期路由凭据**
+   执行 `as-workspace-server node register --url <cp-origin>`，消费 `AS_INSTALL_TOKEN`，在 `~/.agent-system/node/state/`（文件权限 `0600`）中保存分配到的 `host_id` 与专属 Route Credential。
+
+6. **注册并启动用户级守护服务**
+   执行 `as-workspace-server node service install`，自动采集当前用户登录 Shell 及常见 CLI 目录（如 `~/.local/bin`、`~/.nvm`、`/opt/homebrew/bin` 等）写入服务 `PATH`，确保本机安装的 Claude / Codex 等工具可被直接发现，随后拉起 `node run` 连入控制面。
+
+</Steps>
+
+## 目录授权（`--root`）策略
+
+为了保护您机器上的隐私文件，节点采用**最小目录授权**设计：
+
+- **默认零预授权（即装即用）**：直接执行上述默认安装命令时，不会把任何目录预先批量授权给 Agent。安装用户的 `Home` 目录仅作为 Web 目录选择器的**只读浏览起点**，只有当您在新建项目弹窗中显式选中并确认某个代码子目录时，该目录才会被持久绑定并授权（系统拒绝将整个 `Home` 根目录直接作为项目工作区）。
+- **安装时批量预授权固定代码根**：若希望预先开放指定工作目录（如服务器上的 `/srv/code`），可在 `sh` 后通过 `-s -- --root` 追加一个或多个路径：
+
+```bash
+curl -fsSL https://cp.example.com/install.sh | AS_INSTALL_TOKEN=ast_xxxxxxxx sh -s -- \
+  --root /srv/code \
+  --root /data/repos
+```
+
+<Aside type="tip" title="后续调整预授权目录">
+需要增减 `--root` 列表或刷新新安装的全局 CLI `PATH` 时，只需在 Host 页面重新生成一条安装命令，带上新的完整 `--root` 列表在同一台机器上再跑一次即可（不带 `--root` 重装则会保留原先记录的 `--root` 列表）。
+</Aside>
+
+## 操作系统服务托管差异
+
+节点默认注册为当前用户的后台服务，不同操作系统的生命周期行为如下：
+
+<Tabs>
+  <TabItem label="Linux (systemd --user)">
+    - **服务单元位置**：`~/.config/systemd/user/agent-system-node.service`
+    - **开机自启与退出会话驻留**：`node service install` 会自动尝试执行 `loginctl enable-linger "$USER"`，保证机器重启后自动上线、SSH 退出登录后依然保持后台运行。
+    - **权限提示**：若受限环境不允许普通用户开启 linger，命令会以退出码 `6` 结束并打印需要管理员代为执行的那条 `sudo loginctl enable-linger <user>` 命令，执行后再重跑一次 `service install` 即可。
+  </TabItem>
+  <TabItem label="macOS (LaunchAgent)">
+    - **服务定义位置**：`~/Library/LaunchAgents/io.agentsystem.node.plist`
+    - **自动加载域**：桌面终端执行时挂载至 `gui/<uid>` 域，纯 SSH 会话执行时挂载至 `user/<uid>` 域，无需 `sudo`。
+    - **运行周期**：macOS LaunchAgent 随该用户**登录系统后自动启动**；若在 macOS 上完全注销（Log Out）当前图形账户，服务会在下次登录前暂停运行。
+  </TabItem>
+</Tabs>
+
+## 节点日常运维、升级与卸载
+
+被控机上的 `~/.agent-system/node/bin/as-workspace-server` 提供了完整的本地运维子命令：
+
+| 命令 | 用途说明 |
+| --- | --- |
+| `~/.agent-system/node/bin/as-workspace-server node status` | 输出安全的 JSON 状态摘要（含 `host_id`、双服务 ID、版本号与网关连接状态，不含任何敏感凭据） |
+| `~/.agent-system/node/bin/as-workspace-server node service install` | 幂等刷新用户级服务配置（含重新探测登录 Shell `PATH`）并重启节点服务 |
+| `~/.agent-system/node/bin/as-workspace-server node service uninstall` | 停止并移除系统自启服务，但保留 `~/.agent-system/node/` 二进制与状态文件 |
+| `~/.agent-system/node/bin/as-workspace-server node uninstall` | 停止移除服务并彻底删除 `~/.agent-system/node/`（绝不触碰您的业务代码仓库与本地 Provider 登录态） |
+
+### 版本升级与移除后原位恢复
+
+- **平滑升级**：当控制面升级且主版本号变化时，旧节点会显示 `VERSION_INCOMPATIBLE`。只需在 Host 页面重新生成安装命令并在该机器上执行一次，只要 `~/.agent-system/node/state/` 仍在，节点就会自动携带旧凭据证明身份、轮换新凭据，并**保持原有的 `host_id` 与所有已绑定的项目无缝恢复**。
+- **误删主机恢复**：若在 Web 界面移除了某台主机，控制面会立即断开其隧道并吊销旧凭据（节点收到拒绝后安静退出，不会死循环重试）。日后若想重新接入同一台机器，重新运行一次安装命令即可原地复活原 `host_id`。

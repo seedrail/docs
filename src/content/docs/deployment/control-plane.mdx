@@ -1,0 +1,129 @@
+---
+title: 服务端部署控制面
+description: 编译跨平台发布包、配置公共信任 TLS 或自有反向代理，在生产服务器上部署 as-control-plane。
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+将控制面（`as-control-plane`）部署在具备公网或团队内网 HTTPS 入口的服务器上后，您可以随时随地通过浏览器或桌面客户端访问工作台，并用一行命令把不同网络环境下的开发机接入进来。
+
+控制面的数据库迁移已内嵌在 Go 可执行文件中，**目标服务器无需安装 Go、Node.js、pnpm 或仓库源码**，只需上传编译产物并准备控制面基础设施（PostgreSQL、NATS JetStream、Redis）。
+
+## 第一步：编译控制面与跨平台节点安装包
+
+在构建机上运行仓库提供的打包命令，一次性产出控制面二进制与被控机所需的跨平台节点归档包：
+
+```bash
+node scripts/build-host-binaries.ts
+```
+
+构建产物包含两部分：
+
+1. **`as-control-plane`**：部署在控制面服务器上的主程序（`CGO_ENABLED=0` 静态编译）。
+2. **节点分发目录（供 `-node-dist-dir` 挂载）**：包含 `darwin-arm64`、`linux-amd64`、`linux-arm64` 三个平台的 `<os>-<arch>.tar.gz` 及同名 `.sha256` 校验文件（内含 `as-workspace-server`、独立编译的 `as-adapter-host` 与 `as-delegate` 启动器）。控制面会通过 `GET /downloads/node/<os>-<arch>.tar.gz` 直接向被控机分发同版本安装包。
+
+<Aside type="note" title="按需上传平台包">
+如果未配置 `-node-dist-dir` 或缺少某个平台的 `.tar.gz`，控制面仍可正常启动，Web 端的「添加主机」弹窗会自动列出当前缺失的平台（`unavailable_platforms`）提醒管理员。
+</Aside>
+
+## 第二步：配置 HTTPS 与网络监听
+
+控制面在同一个对外 HTTPS 入口上承载 Web 页面、Connect API、`/install.sh`、`/downloads/` 与节点网关（`/v1/node/*`）。
+
+<Aside type="danger" title="TLS 证书与代理红线">
+1. **必须使用公共信任 CA 签发的证书**（如 Let's Encrypt、Tailscale `cert` 或正规商业证书）：被控机仅使用操作系统根证书库校验证书，不支持自签名或私有 CA。
+2. **切勿置于解密流量的第三方 CDN / 代理之后**：外层 TLS 是节点凭据与业务代码流量的唯一加密层，必须在 `as-control-plane` 自身或您完全控制的反向代理上终止。
+3. **严禁开启免登开关**：生产环境必须保持 `-local-no-login=false`（默认值），切勿将本机回环调试入口通过端口转发暴露到公网。
+</Aside>
+
+您可以根据服务器运维习惯选择以下任一部署拓扑：
+
+<Tabs>
+  <TabItem label="方式 A：控制面直接终止 TLS">
+    适合单机直连部署，无需额外部署 Nginx 或 Caddy。确保数据库、NATS 与 Redis 连接串通过环境变量传入（避免出现在进程参数列表中）：
+
+    ```bash
+    export AS_CONTROL_PLANE_PG_URL="postgres://user:pass@127.0.0.1:5432/seedrail?sslmode=disable"
+    export AS_CONTROL_PLANE_NATS_URL="nats://user:pass@127.0.0.1:4222"
+    export AS_CONTROL_PLANE_REDIS_URL="redis://:pass@127.0.0.1:6379/0"
+    export AS_CONTROL_PLANE_ATTACHMENT_DIR="/var/lib/seedrail/attachments"
+
+    ./as-control-plane \
+      -listen 0.0.0.0:443 \
+      -base-url https://cp.example.com \
+      -tls-cert-file /etc/letsencrypt/live/cp.example.com/fullchain.pem \
+      -tls-key-file /etc/letsencrypt/live/cp.example.com/privkey.pem \
+      -node-dist-dir /opt/seedrail/node-dist
+    ```
+  </TabItem>
+  <TabItem label="方式 B：部署在自有反向代理之后">
+    若服务器已有 Caddy / Nginx 统一管理 443 端口证书，让 `as-control-plane` 仅监听内网或本机回环地址，并通过 `-trusted-proxy-cidrs` 声明反向代理所在网段，确保限流配额按真实客户端 IP 统计：
+
+    ```bash
+    export AS_CONTROL_PLANE_PG_URL="postgres://user:pass@127.0.0.1:5432/seedrail?sslmode=disable"
+    export AS_CONTROL_PLANE_NATS_URL="nats://user:pass@127.0.0.1:4222"
+    export AS_CONTROL_PLANE_REDIS_URL="redis://:pass@127.0.0.1:6379/0"
+    export AS_CONTROL_PLANE_ATTACHMENT_DIR="/var/lib/seedrail/attachments"
+
+    ./as-control-plane \
+      -listen 127.0.0.1:8080 \
+      -base-url https://cp.example.com \
+      -trusted-proxy-cidrs 127.0.0.1/32,::1/128 \
+      -node-dist-dir /opt/seedrail/node-dist
+    ```
+
+    反向代理侧需满足三项转发要求：
+    - 支持 **WebSocket Upgrade**（覆盖 `/connection/websocket` 与 `/v1/node/*`）；
+    - 原样透传 `Authorization` 请求头；
+    - 正确写入 `X-Forwarded-For` 请求头。
+  </TabItem>
+</Tabs>
+
+## 核心配置参数速查
+
+所有参数均支持命令行标志或同名环境变量（命令行标志优先级高于环境变量）：
+
+| 命令行标志 | 环境变量 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-listen` | `AS_CONTROL_PLANE_LISTEN` | `127.0.0.1:8080` | HTTP/HTTPS 监听地址 |
+| `-base-url` | `AS_CONTROL_PLANE_BASE_URL` | 实际监听地址 | 浏览器与被控机访问的公网 HTTPS Origin（生成登录链接与 `install.sh` 均以此为准，不取请求 `Host` 头） |
+| `-pg` | `AS_CONTROL_PLANE_PG_URL` | 本地默认 DSN | PostgreSQL 连接串（启动时自动按序执行内嵌迁移；生产环境请经环境变量传入） |
+| `-nats` | `AS_CONTROL_PLANE_NATS_URL` | `nats://127.0.0.1:14222` | NATS（含 JetStream）连接地址，支持在 URL userinfo 中携带 Account 凭据 |
+| `-redis-url` | `AS_CONTROL_PLANE_REDIS_URL` | 空 | Redis 地址，仅存一次性节点安装令牌；未配置或暂不可达时仅影响新增/重装节点，不影响存量在线节点 |
+| `-env-name` | `AS_CONTROL_PLANE_ENV_NAME` | `prod` | 环境标识，作为 Redis 令牌键前缀 `<env>:` |
+| `-node-dist-dir` | `AS_CONTROL_PLANE_NODE_DIST_DIR` | 空 | 存放三平台节点 `.tar.gz` 与 `.sha256` 的目录 |
+| `-tls-cert-file` / `-tls-key-file` | `AS_CONTROL_PLANE_TLS_CERT_FILE` / `AS_CONTROL_PLANE_TLS_KEY_FILE` | 空 | 控制面自行终止 TLS 时的 PEM 证书链与私钥路径 |
+| `-trusted-proxy-cidrs` | `AS_CONTROL_PLANE_TRUSTED_PROXY_CIDRS` | 空 | 逗号分隔的可信反向代理 CIDR 列表 |
+| `-attachment-dir` | `AS_CONTROL_PLANE_ATTACHMENT_DIR` | `~/.local/state/agent-system/attachments` | 消息附件字节存储目录 |
+| （仅环境变量） | `AS_CONTROL_PLANE_DELEGATION_KEY` | 附件目录同级的 `delegation.key` | 驱动委派令牌 HMAC 密钥（至少 16 字符；未设置时首次启动自动生成 `0600` 密钥文件，重启须保持不变） |
+| `-session-ttl` | `AS_CONTROL_PLANE_SESSION_TTL` | `720h` | 登录会话空闲过期时长（活跃使用期间自动滑动续期） |
+
+## 第三步：首次管理员登录与数据备份
+
+<Steps>
+
+1. **检查服务健康状态**
+
+   ```bash
+   curl -f https://cp.example.com/healthz
+   ```
+
+2. **签发首次登录链接**
+
+   在控制面服务器终端运行内置 `token generate` 子命令，生成一次性管理员登录链接（默认 10 分钟内单次兑换有效）：
+
+   ```bash
+   ./as-control-plane token generate -base-url https://cp.example.com
+   ```
+
+   将终端 stdout 打印的 `https://cp.example.com/login?token=...` 复制到浏览器打开即可完成登录。
+
+3. **配置定期备份**
+
+   控制面仅运行单实例 Writer，状态集中且易于备份：
+   - **必备份（成对保存）**：PostgreSQL 数据库 + `-attachment-dir` 附件目录（及同级自动生成的 `delegation.key`）。所有已登记的主机身份摘要均保存在 PostgreSQL 中，灾难恢复数据库后，各台被控机会凭本机原有的 Route Credential 自动重连并恢复 `READY`，无需重新安装节点。
+   - **无需备份**：Redis（仅存临时安装令牌）与 NATS JetStream（仅作实时分发缓冲）。
+
+</Steps>
+
+控制面就绪后，继续阅读 [跨主机接入被控机](/deployment/add-host/) 将您的开发电脑或远端云主机接入工作台。

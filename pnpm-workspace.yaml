@@ -1,0 +1,2 @@
+# Standalone root so pnpm commands inside website/ stay isolated when mounted as a git submodule.
+packages: []

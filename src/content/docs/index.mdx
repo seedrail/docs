@@ -1,0 +1,61 @@
+---
+title: Seedrail 文档
+description: 跨主机多 Agent 协作工作台：统一调度本地与远端开发机上的编码会话、Git Worktree 与终端预览。
+template: splash
+editUrl: false
+hero:
+  tagline: 统一管理本地与跨主机开发节点上的多 Agent 编码会话、Git Worktree、实时文件变更与终端预览——零入站端口，一行命令接入任意机器。
+  actions:
+    - text: 本地快速开始
+      link: /getting-started/quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: 跨主机接入被控机
+      link: /deployment/add-host/
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## 核心能力与架构特性
+
+<CardGrid stagger>
+	<Card title="纯出站零端口暴露接入" icon="rocket">
+		被控开发机或云服务器无需开放任何入站 TCP 端口、无需配置 SSH 密钥转发。节点通过一行 `install.sh` 命令注册为用户级守护服务，主动出站建立受控加密隧道。
+	</Card>
+	<Card title="多工作树与多会话并行" icon="puzzle">
+		围绕 `Project → Task → Worktree → Conversation → Session` 组织研发全生命周期，在同一控制面同时驱动多台机器上的 Claude、Codex 等原生 Agent CLI。
+	</Card>
+	<Card title="执行机权威文件与实时流" icon="document">
+		代码始终留在被控机本地磁盘，不向控制面同步整仓副本；文件树、Git Diff、终端输出与运行时增量事件经统一信封实时推送到 Web 与 macOS 桌面客户端。
+	</Card>
+	<Card title="断线自愈与防串机保护" icon="approve-check-circle">
+		网络抖动或控制面重启不会中断被控机上已受理的编码回合，重连后自动按游标续传；目标主机离线时明确报错，绝不静默改投到其他机器。
+	</Card>
+</CardGrid>
+
+## 按场景阅读指南
+
+<CardGrid>
+	<LinkCard
+		title="组件与架构总览"
+		description="了解客户端、控制面（Control Plane）与被控节点（Workspace + Adapter）四层职责边界及纯出站连接模型。"
+		href="/concepts/architecture/"
+	/>
+	<LinkCard
+		title="本地快速开始"
+		description="在单台开发机上一键拉起共享依赖与完整热重载环境，生成登录链接并在 Web 或桌面端开始协作。"
+		href="/getting-started/quickstart/"
+	/>
+	<LinkCard
+		title="服务端部署控制面"
+		description="编译跨平台独立二进制、配置公共信任 TLS 证书或反向代理，在公网或内网服务器上线 as-control-plane。"
+		href="/deployment/control-plane/"
+	/>
+	<LinkCard
+		title="跨主机接入被控机"
+		description="通过 Web 页面或 CLI 生成一次性安装令牌，在 macOS / Linux 开发机上一行命令完成节点注册、目录授权与服务托管。"
+		href="/deployment/add-host/"
+	/>
+</CardGrid>
